@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pypecdp"
+version = "0.1.6"
+description = "Async Chrome DevTools Protocol over POSIX pipes."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT License" }
+authors = [
+  { name = "sohaib17" }
+]
+homepage = "https://github.com/sohaib17/pypecdp"
+keywords = ["cdp", "chromium", "chrome", "devtools", "asyncio", "automation", "headless"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/sohaib17/pypecdp"
+Source = "https://github.com/sohaib17/pypecdp"
+Issues = "https://github.com/sohaib17/pypecdp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pypecdp"]
+
+[tool.isort]
+profile = "black"
+skip_glob = ["src/pypecdp/cdp/*"]
+
+[tool.black]
+line-length = 79
+exclude = "src/pypecdp/cdp/"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+follow_imports = "silent"
+show_column_numbers = true
+disable_error_code = ["attr-defined", "import-untyped"]
