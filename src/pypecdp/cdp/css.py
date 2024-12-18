@@ -397,6 +397,10 @@ class CSSRule:
     #: The array keeps the types of ancestor CSSRules from the innermost going outwards.
     rule_types: typing.Optional[typing.List[CSSRuleType]] = None
 
+    #: @starting-style CSS at-rule array.
+    #: The array enumerates @starting-style at-rules starting with the innermost one, going outwards.
+    starting_styles: typing.Optional[typing.List[CSSStartingStyle]] = None
+
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         json['selectorList'] = self.selector_list.to_json()
@@ -418,6 +422,8 @@ class CSSRule:
             json['scopes'] = [i.to_json() for i in self.scopes]
         if self.rule_types is not None:
             json['ruleTypes'] = [i.to_json() for i in self.rule_types]
+        if self.starting_styles is not None:
+            json['startingStyles'] = [i.to_json() for i in self.starting_styles]
         return json
 
     @classmethod
@@ -434,6 +440,7 @@ class CSSRule:
             layers=[CSSLayer.from_json(i) for i in json['layers']] if json.get('layers', None) is not None else None,
             scopes=[CSSScope.from_json(i) for i in json['scopes']] if json.get('scopes', None) is not None else None,
             rule_types=[CSSRuleType.from_json(i) for i in json['ruleTypes']] if json.get('ruleTypes', None) is not None else None,
+            starting_styles=[CSSStartingStyle.from_json(i) for i in json['startingStyles']] if json.get('startingStyles', None) is not None else None,
         )
 
 
@@ -448,6 +455,7 @@ class CSSRuleType(enum.Enum):
     LAYER_RULE = "LayerRule"
     SCOPE_RULE = "ScopeRule"
     STYLE_RULE = "StyleRule"
+    STARTING_STYLE_RULE = "StartingStyleRule"
 
     def to_json(self) -> str:
         return self.value
@@ -834,6 +842,9 @@ class CSSContainerQuery:
     #: Optional logical axes queried for the container.
     logical_axes: typing.Optional[dom.LogicalAxes] = None
 
+    #: true if the query contains scroll-state() queries.
+    queries_scroll_state: typing.Optional[bool] = None
+
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         json['text'] = self.text
@@ -847,6 +858,8 @@ class CSSContainerQuery:
             json['physicalAxes'] = self.physical_axes.to_json()
         if self.logical_axes is not None:
             json['logicalAxes'] = self.logical_axes.to_json()
+        if self.queries_scroll_state is not None:
+            json['queriesScrollState'] = self.queries_scroll_state
         return json
 
     @classmethod
@@ -858,6 +871,7 @@ class CSSContainerQuery:
             name=str(json['name']) if json.get('name', None) is not None else None,
             physical_axes=dom.PhysicalAxes.from_json(json['physicalAxes']) if json.get('physicalAxes', None) is not None else None,
             logical_axes=dom.LogicalAxes.from_json(json['logicalAxes']) if json.get('logicalAxes', None) is not None else None,
+            queries_scroll_state=bool(json['queriesScrollState']) if json.get('queriesScrollState', None) is not None else None,
         )
 
 
@@ -960,6 +974,34 @@ class CSSLayer:
     def from_json(cls, json: T_JSON_DICT) -> CSSLayer:
         return cls(
             text=str(json['text']),
+            range_=SourceRange.from_json(json['range']) if json.get('range', None) is not None else None,
+            style_sheet_id=StyleSheetId.from_json(json['styleSheetId']) if json.get('styleSheetId', None) is not None else None,
+        )
+
+
+@dataclass
+class CSSStartingStyle:
+    '''
+    CSS Starting Style at-rule descriptor.
+    '''
+    #: The associated rule header range in the enclosing stylesheet (if
+    #: available).
+    range_: typing.Optional[SourceRange] = None
+
+    #: Identifier of the stylesheet containing this object (if exists).
+    style_sheet_id: typing.Optional[StyleSheetId] = None
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        if self.range_ is not None:
+            json['range'] = self.range_.to_json()
+        if self.style_sheet_id is not None:
+            json['styleSheetId'] = self.style_sheet_id.to_json()
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> CSSStartingStyle:
+        return cls(
             range_=SourceRange.from_json(json['range']) if json.get('range', None) is not None else None,
             style_sheet_id=StyleSheetId.from_json(json['styleSheetId']) if json.get('styleSheetId', None) is not None else None,
         )
@@ -1738,6 +1780,31 @@ def get_location_for_selector(
     return [SourceRange.from_json(i) for i in json['ranges']]
 
 
+def track_computed_style_updates_for_node(
+        node_id: typing.Optional[dom.NodeId] = None
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,None]:
+    '''
+    Starts tracking the given node for the computed style updates
+    and whenever the computed style is updated for node, it queues
+    a ``computedStyleUpdated`` event with throttling.
+    There can only be 1 node tracked for computed style updates
+    so passing a new node id removes tracking from the previous node.
+    Pass ``undefined`` to disable tracking.
+
+    **EXPERIMENTAL**
+
+    :param node_id: *(Optional)*
+    '''
+    params: T_JSON_DICT = dict()
+    if node_id is not None:
+        params['nodeId'] = node_id.to_json()
+    cmd_dict: T_JSON_DICT = {
+        'method': 'CSS.trackComputedStyleUpdatesForNode',
+        'params': params,
+    }
+    json = yield cmd_dict
+
+
 def track_computed_style_updates(
         properties_to_track: typing.List[CSSComputedStyleProperty]
     ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,None]:
@@ -2167,4 +2234,22 @@ class StyleSheetRemoved:
     def from_json(cls, json: T_JSON_DICT) -> StyleSheetRemoved:
         return cls(
             style_sheet_id=StyleSheetId.from_json(json['styleSheetId'])
+        )
+
+
+@event_class('CSS.computedStyleUpdated')
+@dataclass
+class ComputedStyleUpdated:
+    '''
+    **EXPERIMENTAL**
+
+
+    '''
+    #: The node id that has updated computed styles.
+    node_id: dom.NodeId
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> ComputedStyleUpdated:
+        return cls(
+            node_id=dom.NodeId.from_json(json['nodeId'])
         )

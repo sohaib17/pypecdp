@@ -202,15 +202,19 @@ class PermissionsPolicyFeature(enum.Enum):
     CLIPBOARD_READ = "clipboard-read"
     CLIPBOARD_WRITE = "clipboard-write"
     COMPUTE_PRESSURE = "compute-pressure"
+    CONTROLLED_FRAME = "controlled-frame"
     CROSS_ORIGIN_ISOLATED = "cross-origin-isolated"
     DEFERRED_FETCH = "deferred-fetch"
+    DEFERRED_FETCH_MINIMAL = "deferred-fetch-minimal"
     DIGITAL_CREDENTIALS_GET = "digital-credentials-get"
     DIRECT_SOCKETS = "direct-sockets"
+    DIRECT_SOCKETS_PRIVATE = "direct-sockets-private"
     DISPLAY_CAPTURE = "display-capture"
     DOCUMENT_DOMAIN = "document-domain"
     ENCRYPTED_MEDIA = "encrypted-media"
     EXECUTION_WHILE_OUT_OF_VIEWPORT = "execution-while-out-of-viewport"
     EXECUTION_WHILE_NOT_RENDERED = "execution-while-not-rendered"
+    FENCED_UNPARTITIONED_STORAGE_READ = "fenced-unpartitioned-storage-read"
     FOCUS_WITHOUT_USER_ACTIVATION = "focus-without-user-activation"
     FULLSCREEN = "fullscreen"
     FROBULATE = "frobulate"
@@ -1817,6 +1821,7 @@ class BackForwardCacheNotRestoredReason(enum.Enum):
     EMBEDDER_EXTENSION_MESSAGING_FOR_OPEN_PORT = "EmbedderExtensionMessagingForOpenPort"
     EMBEDDER_EXTENSION_SENT_MESSAGE_TO_CACHED_FRAME = "EmbedderExtensionSentMessageToCachedFrame"
     REQUESTED_BY_WEB_VIEW_CLIENT = "RequestedByWebViewClient"
+    POST_MESSAGE_BY_WEB_VIEW_CLIENT = "PostMessageByWebViewClient"
 
     def to_json(self) -> str:
         return self.value
@@ -3399,6 +3404,25 @@ class FrameDetached:
         )
 
 
+@event_class('Page.frameSubtreeWillBeDetached')
+@dataclass
+class FrameSubtreeWillBeDetached:
+    '''
+    **EXPERIMENTAL**
+
+    Fired before frame subtree is detached. Emitted before any frame of the
+    subtree is actually detached.
+    '''
+    #: Id of the frame that is the root of the subtree that will be detached.
+    frame_id: FrameId
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> FrameSubtreeWillBeDetached:
+        return cls(
+            frame_id=FrameId.from_json(json['frameId'])
+        )
+
+
 @event_class('Page.frameNavigated')
 @dataclass
 class FrameNavigated:
@@ -3686,7 +3710,8 @@ class JavascriptDialogOpening:
 @dataclass
 class LifecycleEvent:
     '''
-    Fired for top level page lifecycle events such as navigation, load, paint, etc.
+    Fired for lifecycle events (navigation, load, paint, etc) in the current
+    target (including local frames).
     '''
     #: Id of the frame.
     frame_id: FrameId

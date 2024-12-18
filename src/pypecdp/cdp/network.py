@@ -68,7 +68,9 @@ class LoaderId(str):
 
 class RequestId(str):
     '''
-    Unique request identifier.
+    Unique network request identifier.
+    Note that this does not identify individual HTTP requests that are part of
+    a network request.
     '''
     def to_json(self) -> str:
         return self
@@ -679,6 +681,7 @@ class BlockedReason(enum.Enum):
     CORP_NOT_SAME_ORIGIN_AFTER_DEFAULTED_TO_SAME_ORIGIN_BY_DIP = "corp-not-same-origin-after-defaulted-to-same-origin-by-dip"
     CORP_NOT_SAME_ORIGIN_AFTER_DEFAULTED_TO_SAME_ORIGIN_BY_COEP_AND_DIP = "corp-not-same-origin-after-defaulted-to-same-origin-by-coep-and-dip"
     CORP_NOT_SAME_SITE = "corp-not-same-site"
+    SRI_MESSAGE_SIGNATURE_MISMATCH = "sri-message-signature-mismatch"
 
     def to_json(self) -> str:
         return self.value
@@ -1204,6 +1207,7 @@ class Initiator:
     type_: str
 
     #: Initiator JavaScript stack trace, set for Script only.
+    #: Requires the Debugger domain to be enabled.
     stack: typing.Optional[runtime.StackTrace] = None
 
     #: Initiator URL, set for Parser type or for Script type (when script is importing module) or for SignedExchange type.
@@ -1430,6 +1434,8 @@ class CookieBlockedReason(enum.Enum):
     SCHEMEFUL_SAME_SITE_UNSPECIFIED_TREATED_AS_LAX = "SchemefulSameSiteUnspecifiedTreatedAsLax"
     SAME_PARTY_FROM_CROSS_PARTY_CONTEXT = "SamePartyFromCrossPartyContext"
     NAME_VALUE_PAIR_EXCEEDS_MAX_SIZE = "NameValuePairExceedsMaxSize"
+    PORT_MISMATCH = "PortMismatch"
+    SCHEME_MISMATCH = "SchemeMismatch"
 
     def to_json(self) -> str:
         return self.value
@@ -1452,7 +1458,6 @@ class CookieExemptionReason(enum.Enum):
     ENTERPRISE_POLICY = "EnterprisePolicy"
     STORAGE_ACCESS = "StorageAccess"
     TOP_LEVEL_STORAGE_ACCESS = "TopLevelStorageAccess"
-    CORS_OPT_IN = "CorsOptIn"
     SCHEME = "Scheme"
 
     def to_json(self) -> str:

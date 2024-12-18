@@ -269,6 +269,7 @@ class AXPropertyName(enum.Enum):
     - from 'checked' to 'selected': states which apply to widgets
     - from 'activedescendant' to 'owns' - relationships between elements other than parent/child/sibling.
     '''
+    ACTIONS = "actions"
     BUSY = "busy"
     DISABLED = "disabled"
     EDITABLE = "editable"
