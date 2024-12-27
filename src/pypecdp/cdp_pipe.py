@@ -13,6 +13,21 @@ logger = logging.getLogger("pypecdp")
 async def launch_chrome_with_pipe(
     config,
 ):
+    """Launch Chrome with pipe-based CDP communication.
+
+    Creates bidirectional pipes for Chrome DevTools Protocol
+    communication, launches the Chrome process with appropriate file
+    descriptors, and returns async reader/writer for CDP messages.
+
+    Args:
+        config: Configuration object with Chrome path and arguments.
+
+    Returns:
+        tuple: A tuple containing:
+            - proc: The Chrome subprocess object.
+            - reader: AsyncIO StreamReader for reading CDP messages.
+            - writer: Custom writer object for sending CDP messages.
+    """
     chrome_path = config.chrome_path
     argv = config.build_argv()
     env = config.build_env()

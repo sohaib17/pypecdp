@@ -18,4 +18,4 @@ from .elem import Elem
 from .tab import Tab
 
 __all__ = ["Browser", "Tab", "Elem", "Config"]
-__version__ = "0.1.6"
+__version__ = "0.1.7"

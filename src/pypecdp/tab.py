@@ -11,6 +11,17 @@ logger = logging.getLogger("pypecdp")
 
 
 class Tab:
+    """Represents a browser tab/target with CDP session.
+
+    Manages a CDP session for a specific target, handles event
+    dispatching, and provides methods for navigation and DOM queries.
+
+    Attributes:
+        browser: The parent Browser instance.
+        target_id: CDP target identifier.
+        target_info: Optional target metadata.
+        session_id: CDP session ID for this tab.
+    """
 
     def __init__(
         self,
@@ -18,6 +29,13 @@ class Tab:
         target_id,
         target_info=None,
     ):
+        """Initialize a Tab instance.
+
+        Args:
+            browser: The Browser instance managing this tab.
+            target_id: CDP target identifier.
+            target_info: Optional target metadata.
+        """
         self.browser = browser
         self.target_id = target_id
         self.target_info = target_info
@@ -27,6 +45,10 @@ class Tab:
     async def init(
         self,
     ):
+        """Initialize CDP domains for this tab.
+
+        Enables Page, Runtime, DOM, and Log domains.
+        """
         await self.send(cdp.page.enable())
         await self.send(cdp.runtime.enable())
         await self.send(cdp.dom.enable())
@@ -36,6 +58,17 @@ class Tab:
         self,
         cmd,
     ):
+        """Send a CDP command within this tab's session.
+
+        Args:
+            cmd: CDP command generator to send.
+
+        Returns:
+            The parsed response from the CDP command.
+
+        Raises:
+            RuntimeError: If the tab is not attached or command fails.
+        """
         if not self.session_id:
             raise RuntimeError(f"Tab {self.target_id} not attached")
         return await self.browser.send(cmd, session_id=self.session_id)
@@ -45,12 +78,23 @@ class Tab:
         event_name,
         handler,
     ):
+        """Register an event handler for tab-level CDP events.
+
+        Args:
+            event_name: The CDP event type to listen for.
+            handler: Callback function or coroutine to handle events.
+        """
         self._handlers.setdefault(event_name, []).append(handler)
 
     async def handle_event(
         self,
         event,
     ):
+        """Dispatch a CDP event to registered handlers.
+
+        Args:
+            event: The CDP event object to dispatch.
+        """
         method = type(event)
         for h in self._handlers.get(method, []):
             try:
@@ -68,6 +112,13 @@ class Tab:
         url,
         timeout=10.0,
     ):
+        """Navigate to a URL and wait for page load.
+
+        Args:
+            url: The URL to navigate to.
+            timeout: Maximum seconds to wait for load event. Set to 0
+                to skip waiting.
+        """
         await self.send(cdp.page.navigate(url=url))
         if timeout > 0:
             await self.wait_for_event(event=LoadEventFired, timeout=timeout)
@@ -77,6 +128,13 @@ class Tab:
         event=LoadEventFired,
         timeout=10.0,
     ):
+        """Wait for a specific CDP event to occur.
+
+        Args:
+            event: The CDP event type to wait for.
+            timeout: Maximum seconds to wait. Timeout errors are
+                suppressed.
+        """
         fut = asyncio.get_running_loop().create_future()
 
         async def on_loaded(_):
@@ -96,6 +154,16 @@ class Tab:
         expression,
         await_promise=True,
     ):
+        """Evaluate JavaScript expression in the page context.
+
+        Args:
+            expression: JavaScript code to evaluate.
+            await_promise: Whether to await if expression returns a
+                Promise.
+
+        Returns:
+            The result of the evaluation.
+        """
         result, _ = await self.send(
             cdp.runtime.evaluate(
                 expression=expression, await_promise=await_promise
@@ -109,6 +177,14 @@ class Tab:
         self,
         selector,
     ):
+        """Find the first element matching a CSS selector.
+
+        Args:
+            selector: CSS selector string.
+
+        Returns:
+            Elem | None: The matching element, or None if not found.
+        """
         root = await self.send(cdp.dom.get_document())
         node_id = root.node_id
         result_node_id = await self.send(
@@ -125,6 +201,14 @@ class Tab:
         self,
         selector,
     ):
+        """Find all elements matching a CSS selector.
+
+        Args:
+            selector: CSS selector string.
+
+        Returns:
+            list[Elem]: List of matching elements (may be empty).
+        """
         root = await self.send(cdp.dom.get_document())
         node_id = root.node_id
         node_ids = await self.send(
@@ -138,6 +222,16 @@ class Tab:
         timeout=10.0,
         poll=0.05,
     ):
+        """Wait for an element matching a selector to appear.
+
+        Args:
+            selector: CSS selector string.
+            timeout: Maximum seconds to wait.
+            poll: Polling interval in seconds.
+
+        Returns:
+            Elem | None: The matching element, or None if timeout.
+        """
         end = asyncio.get_running_loop().time() + timeout
         while asyncio.get_running_loop().time() < end:
             el = await self.select(selector)
@@ -149,6 +243,11 @@ class Tab:
     async def close(
         self,
     ):
+        """Close this tab.
+
+        Sends a close target command. Errors are suppressed if the tab
+        is already closed or connection is lost.
+        """
         try:
             await self.browser.send(
                 cdp.target.close_target(target_id=self.target_id)

@@ -15,6 +15,18 @@ logger = logging.getLogger(os.environ.get("PYPECDP_LOGGER", "pypecdp"))
 
 
 class Browser:
+    """High-level browser automation via Chrome DevTools Protocol.
+
+    Manages the Chrome/Chromium browser process lifecycle and CDP
+    message routing between tabs and the browser.
+
+    Attributes:
+        config: Configuration object for browser launch.
+        proc: The browser subprocess.
+        reader: Stream reader for CDP pipe communication.
+        writer: Stream writer for CDP pipe communication.
+        targets: Mapping of target IDs to Tab instances.
+    """
 
     def __init__(
         self,
@@ -27,6 +39,19 @@ class Browser:
         switches=None,
         env=None,
     ):
+        """Initialize Browser instance.
+
+        Args:
+            config: Pre-configured Config instance. If None, a new
+                Config will be created from the keyword arguments.
+            chrome_path: Path to Chrome/Chromium executable.
+            user_data_dir: Path to user data directory. If None, a
+                temporary directory will be created.
+            headless: Whether to run in headless mode.
+            extra_args: Additional command-line arguments.
+            switches: Dictionary of Chrome switches to add.
+            env: Environment variables to set for browser process.
+        """
         self.config = config or Config(
             chrome_path=chrome_path,
             user_data_dir=user_data_dir,
@@ -53,6 +78,16 @@ class Browser:
         config=None,
         **kwargs,
     ):
+        """Start a new Browser instance.
+
+        Args:
+            config: Pre-configured Config instance. If None, a new
+                Config will be created from kwargs.
+            **kwargs: Arguments to pass to Config if config is None.
+
+        Returns:
+            Browser: An initialized and launched Browser instance.
+        """
 
         browser = cls(config=config, **kwargs)
         await browser._launch()
@@ -61,6 +96,11 @@ class Browser:
     async def _launch(
         self,
     ):
+        """Launch the Chrome browser process and initialize CDP connection.
+
+        Sets up the browser subprocess, pipe communication, and enables
+        target discovery.
+        """
         self.proc, self.reader, self.writer = await launch_chrome_with_pipe(
             self.config
         )
@@ -70,6 +110,11 @@ class Browser:
     async def close(
         self,
     ):
+        """Close the browser and clean up resources.
+
+        Closes all tabs, terminates the browser process, and cancels
+        background tasks.
+        """
         try:
             for tab in list(self.targets.values()):
                 try:
@@ -109,6 +154,19 @@ class Browser:
         *,
         session_id=None,
     ):
+        """Send a CDP command and await its response.
+
+        Args:
+            cmd: CDP command generator to send.
+            session_id: Optional session ID for tab-specific commands.
+
+        Returns:
+            The parsed response from the CDP command.
+
+        Raises:
+            RuntimeError: If the CDP command returns an error.
+            ConnectionError: If the CDP pipe is closed.
+        """
         method, *params = next(cmd).values()
         payload = params.pop() if params else {}
         self._msg_id += 1
@@ -143,6 +201,12 @@ class Browser:
     async def _recv_loop(
         self,
     ):
+        """Receive and dispatch CDP messages from the browser.
+
+        Continuously reads messages from the CDP pipe, resolves pending
+        command futures, and dispatches events to tabs or browser-level
+        handlers.
+        """
         assert self.reader is not None
         while True:
             try:
@@ -201,6 +265,14 @@ class Browser:
         self,
         event,
     ):
+        """Handle browser-level CDP events.
+
+        Processes target lifecycle events (creation, destruction,
+        attachment) and dispatches other events to registered handlers.
+
+        Args:
+            event: CDP event object to handle.
+        """
         method = type(event)
         if method == cdp.target.TargetCreated:
             # event is a TargetCreated object with target_info attribute
@@ -266,6 +338,16 @@ class Browser:
         url,
         new_tab=True,
     ):
+        """Navigate to a URL in a tab.
+
+        Args:
+            url: The URL to navigate to.
+            new_tab: If True, create a new tab. If False, reuse an
+                existing tab if available.
+
+        Returns:
+            Tab: The tab that was navigated to the URL.
+        """
         if not new_tab:
             # Try to find an existing tab with a page
             for tab in self.targets.values():
@@ -306,6 +388,12 @@ class Browser:
         event_name,
         handler,
     ):
+        """Register an event handler for browser-level events.
+
+        Args:
+            event_name: The CDP event type to listen for.
+            handler: Callback function or coroutine to handle the event.
+        """
         self._handlers.setdefault(event_name, []).append(handler)
 
 

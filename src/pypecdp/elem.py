@@ -16,6 +16,15 @@ logger = logging.getLogger("pypecdp")
 
 @dataclass
 class Elem:
+    """Wrapper for DOM elements with interaction methods.
+
+    Provides high-level methods for interacting with elements in the
+    browser, including clicking, typing, and retrieving attributes.
+
+    Attributes:
+        tab: The Tab instance containing this element.
+        node_id: CDP NodeId identifying the DOM element.
+    """
 
     tab: "Tab"
     node_id: NodeId
@@ -23,6 +32,10 @@ class Elem:
     async def _scroll_into_view(
         self,
     ):
+        """Scroll element into viewport and attempt to focus it.
+
+        Errors are suppressed if the element is detached or hidden.
+        """
         try:
             await self.tab.send(
                 cdp.dom.scroll_into_view_if_needed(node_id=self.node_id)
@@ -40,6 +53,11 @@ class Elem:
     async def _center_point(
         self,
     ):
+        """Calculate the center coordinates of the element's box model.
+
+        Returns:
+            tuple[float, float]: The (x, y) coordinates of the center.
+        """
         box = await self.tab.send(cdp.dom.get_box_model(node_id=self.node_id))
         quad = box.content or box.border
         xs = [quad[0], quad[2], quad[4], quad[6]]
@@ -54,6 +72,16 @@ class Elem:
         click_count=1,
         delay=0.02,
     ):
+        """Click the element at its center point.
+
+        Scrolls the element into view, calculates the center, and
+        dispatches mouse press and release events.
+
+        Args:
+            button: Mouse button to use (default: LEFT).
+            click_count: Number of clicks (1 for single, 2 for double).
+            delay: Delay in seconds between press and release.
+        """
         await self._scroll_into_view()
         x, y = await self._center_point()
         await self.tab.send(
@@ -80,6 +108,13 @@ class Elem:
         self,
         text,
     ):
+        """Type text into the element.
+
+        Focuses the element and inserts the text via CDP input command.
+
+        Args:
+            text: The text string to type.
+        """
         await self.tab.send(cdp.dom.focus(node_id=self.node_id))
         await self.tab.send(cdp.input_.insert_text(text=text))
 
@@ -87,6 +122,14 @@ class Elem:
         self,
         value,
     ):
+        """Set the value property of the element directly.
+
+        Attempts to resolve the element to a RemoteObject and set its
+        value property. Falls back to typing if resolution fails.
+
+        Args:
+            value: The value to set.
+        """
         obj = await self._resolve_object()
         if obj and obj.object_id:
             await self.tab.send(
@@ -103,6 +146,11 @@ class Elem:
     async def text(
         self,
     ):
+        """Get the text content of the element.
+
+        Returns:
+            str | None: The text content, or None if unavailable.
+        """
         obj = await self._resolve_object()
         if obj and obj.object_id:
             res, _ = await self.tab.send(
@@ -119,6 +167,11 @@ class Elem:
     async def html(
         self,
     ):
+        """Get the outer HTML of the element.
+
+        Returns:
+            str: The outer HTML string.
+        """
         res = await self.tab.send(cdp.dom.get_outer_html(node_id=self.node_id))
         return res
 
@@ -126,6 +179,14 @@ class Elem:
         self,
         name,
     ):
+        """Get the value of an attribute.
+
+        Args:
+            name: The attribute name to retrieve.
+
+        Returns:
+            str | None: The attribute value, or None if not found.
+        """
         attrs = await self.tab.send(
             cdp.dom.get_attributes(node_id=self.node_id)
         )
@@ -138,6 +199,12 @@ class Elem:
     async def _resolve_object(
         self,
     ):
+        """Resolve the DOM node to a CDP RemoteObject.
+
+        Returns:
+            RemoteObject | None: The resolved object, or None if the
+                node cannot be resolved.
+        """
         try:
             res = await self.tab.send(
                 cdp.dom.resolve_node(node_id=self.node_id)

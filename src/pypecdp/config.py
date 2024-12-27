@@ -13,6 +13,18 @@ logger = logging.getLogger("pypecdp")
 
 @dataclass
 class Config:
+    """Configuration for launching Chrome/Chromium with CDP pipe.
+
+    Attributes:
+        chrome_path: Path to Chrome/Chromium executable.
+        user_data_dir: Path to user data directory. If None, a
+            temporary directory will be created.
+        headless: Whether to run in headless mode.
+        extra_args: Additional command-line arguments to pass.
+        switches: Dictionary of Chrome switches to enable.
+        env: Environment variables to set for the browser process.
+    """
+
     chrome_path: str = "chromium"
     user_data_dir: str | None = None
     headless: bool = True
@@ -23,6 +35,13 @@ class Config:
     def ensure_user_data_dir(
         self,
     ):
+        """Ensure user data directory exists and return its path.
+
+        If user_data_dir is not set, creates a temporary directory.
+
+        Returns:
+            str: Path to the user data directory.
+        """
         data_dir = self.user_data_dir
         if not data_dir:
             data_dir = os.path.join(tempfile.gettempdir(), ".pypecdp-profile")
@@ -34,6 +53,14 @@ class Config:
     def build_argv(
         self,
     ):
+        """Build command-line arguments for Chrome launch.
+
+        Constructs the full argument list including headless mode,
+        pipe debugging, user data directory, switches, and extra args.
+
+        Returns:
+            list[str]: Complete list of command-line arguments.
+        """
         argv: list[str] = []
         if self.headless and "--headless=new" not in self.extra_args:
             argv.append("--headless=new")
@@ -64,6 +91,13 @@ class Config:
     def build_env(
         self,
     ):
+        """Build environment variables for Chrome process.
+
+        Merges current environment with custom overrides.
+
+        Returns:
+            dict[str, str]: Complete environment variable mapping.
+        """
         env = dict(os.environ)
         env.update(self.env)
         logger.debug("Built child env overrides: %s", self.env)
