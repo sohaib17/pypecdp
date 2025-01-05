@@ -1,0 +1,153 @@
+# pypecdp
+
+Fully async Chrome DevTools Protocol over POSIX pipes with a high-level Browser/Tab/Elem API for Python 3.12+ on Linux.
+
+Chrome automation using `--remote-debugging-pipe` (no websockets, no ports, just pipes) with bundled CDP protocol classes.
+
+Inspired by playwright-python, python-cdp and nodriver.
+
+## Features
+
+- **Fully Async**: Built from ground up with asyncio for concurrent operations
+- **Fast**: Direct pipe communication via file descriptors - no websockets, no network overhead
+- **Secure**: Browser only communicates over local pipes, no open ports accessible to other processes
+- **No zombies**: No risk of orphaned Chrome processes - automatic lifecycle management
+- **Zero dependencies**: No external dependencies required
+- **Linux focused**: Leverages POSIX pipes and process management
+
+## Install
+
+```bash
+pip install pypecdp
+```
+
+Install Chromium if needed:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install chromium-browser
+
+# Fedora
+sudo dnf install chromium
+
+# Arch
+sudo pacman -S chromium
+```
+
+## Quick Start
+
+```python
+import asyncio
+from pypecdp import Browser
+
+async def main():
+    # Launch browser
+    browser = await Browser.start(
+        chrome_path="chromium",
+        headless=True
+    )
+    
+    # Open a tab
+    tab = await browser.get("https://example.com")
+    
+    # Select and interact with elements
+    h1 = await tab.select("h1")
+    if h1:
+        text = await h1.text()
+        print(f"Page heading: {text}")
+    
+    # Evaluate JavaScript
+    result = await tab.eval("document.title")
+    print(f"Title: {result.value}")
+    
+    # Close browser
+    await browser.close()
+
+asyncio.run(main())
+```
+
+## Usage Guide
+
+### Browser Management
+
+```python
+from pypecdp import Browser, Config
+
+# Simple start
+browser = await Browser.start(chrome_path="chromium", headless=True)
+
+# Advanced configuration
+config = Config(
+    chrome_path="/usr/bin/google-chrome",
+    user_data_dir="/tmp/chrome-profile",
+    headless=True,
+    extra_args=["--no-sandbox", "--disable-gpu"],
+    switches={"disable-blink-features": "AutomationControlled"},
+    env={"LANG": "en_US.UTF-8"}
+)
+browser = await Browser.start(config=config)
+
+# Close browser
+await browser.close()
+```
+
+### Event Handlers
+
+```python
+from pypecdp import cdp
+
+# Tab-level events
+async def on_console(event):
+    print(f"Console {event.type_}: {event.args}")
+
+tab.on(cdp.runtime.ConsoleAPICalled, on_console)
+
+# Browser-level events
+async def on_target_created(event):
+    info = event.target_info
+    print(f"Target created: {info.type_} - {info.url}")
+
+browser.on(cdp.target.TargetCreated, on_target_created)
+```
+
+## Error Handling
+
+```python
+try:
+    browser = await Browser.start()
+    tab = await browser.get("https://example.com")
+    
+    # Your automation code
+    result = await tab.eval("document.title")
+    
+except RuntimeError as e:
+    # CDP protocol errors
+    print(f"CDP Error: {e}")
+except ConnectionError as e:
+    # Connection lost
+    print(f"Connection Error: {e}")
+except Exception as e:
+    # Other errors
+    print(f"Error: {e}")
+finally:
+    # Always cleanup
+    await browser.close()
+```
+
+## Requirements
+
+- Python 3.12+
+- Linux (uses POSIX pipes and `preexec_fn`)
+- Chromium or Google Chrome
+
+## Links
+
+- [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
+
+## License
+
+MIT License - See LICENSE file for details.
+
+## Contributing
+
+Contributions welcome! This project aims to provide a clean, type-safe interface to Chrome automation on Linux.

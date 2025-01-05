@@ -336,7 +336,7 @@ class Browser:
     async def get(
         self,
         url,
-        new_tab=True,
+        new_tab=False,
     ):
         """Navigate to a URL in a tab.
 
