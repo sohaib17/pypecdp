@@ -248,7 +248,6 @@ class PrerenderFinalStatus(enum.Enum):
     INVALID_SCHEME_REDIRECT = "InvalidSchemeRedirect"
     INVALID_SCHEME_NAVIGATION = "InvalidSchemeNavigation"
     NAVIGATION_REQUEST_BLOCKED_BY_CSP = "NavigationRequestBlockedByCsp"
-    MAIN_FRAME_NAVIGATION = "MainFrameNavigation"
     MOJO_BINDER_POLICY = "MojoBinderPolicy"
     RENDERER_PROCESS_CRASHED = "RendererProcessCrashed"
     RENDERER_PROCESS_KILLED = "RendererProcessKilled"
@@ -315,6 +314,7 @@ class PrerenderFinalStatus(enum.Enum):
     OTHER_PRERENDERED_PAGE_ACTIVATED = "OtherPrerenderedPageActivated"
     V8_OPTIMIZER_DISABLED = "V8OptimizerDisabled"
     PRERENDER_FAILED_DURING_PREFETCH = "PrerenderFailedDuringPrefetch"
+    BROWSING_DATA_REMOVED = "BrowsingDataRemoved"
 
     def to_json(self) -> str:
         return self.value
@@ -355,6 +355,7 @@ class PrefetchStatus(enum.Enum):
     PREFETCH_FAILED_MIME_NOT_SUPPORTED = "PrefetchFailedMIMENotSupported"
     PREFETCH_FAILED_NET_ERROR = "PrefetchFailedNetError"
     PREFETCH_FAILED_NON2_XX = "PrefetchFailedNon2XX"
+    PREFETCH_EVICTED_AFTER_BROWSING_DATA_REMOVED = "PrefetchEvictedAfterBrowsingDataRemoved"
     PREFETCH_EVICTED_AFTER_CANDIDATE_REMOVED = "PrefetchEvictedAfterCandidateRemoved"
     PREFETCH_EVICTED_FOR_NEWER_PREFETCH = "PrefetchEvictedForNewerPrefetch"
     PREFETCH_HELDBACK = "PrefetchHeldback"
@@ -370,6 +371,9 @@ class PrefetchStatus(enum.Enum):
     PREFETCH_NOT_ELIGIBLE_SCHEME_IS_NOT_HTTPS = "PrefetchNotEligibleSchemeIsNotHttps"
     PREFETCH_NOT_ELIGIBLE_USER_HAS_COOKIES = "PrefetchNotEligibleUserHasCookies"
     PREFETCH_NOT_ELIGIBLE_USER_HAS_SERVICE_WORKER = "PrefetchNotEligibleUserHasServiceWorker"
+    PREFETCH_NOT_ELIGIBLE_USER_HAS_SERVICE_WORKER_NO_FETCH_HANDLER = "PrefetchNotEligibleUserHasServiceWorkerNoFetchHandler"
+    PREFETCH_NOT_ELIGIBLE_REDIRECT_FROM_SERVICE_WORKER = "PrefetchNotEligibleRedirectFromServiceWorker"
+    PREFETCH_NOT_ELIGIBLE_REDIRECT_TO_SERVICE_WORKER = "PrefetchNotEligibleRedirectToServiceWorker"
     PREFETCH_NOT_ELIGIBLE_BATTERY_SAVER_ENABLED = "PrefetchNotEligibleBatterySaverEnabled"
     PREFETCH_NOT_ELIGIBLE_PRELOADING_DISABLED = "PrefetchNotEligiblePreloadingDisabled"
     PREFETCH_NOT_FINISHED_IN_TIME = "PrefetchNotFinishedInTime"

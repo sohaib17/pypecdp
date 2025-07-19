@@ -118,6 +118,7 @@ class PermissionType(enum.Enum):
     IDLE_DETECTION = "idleDetection"
     KEYBOARD_LOCK = "keyboardLock"
     LOCAL_FONTS = "localFonts"
+    LOCAL_NETWORK_ACCESS = "localNetworkAccess"
     MIDI = "midi"
     MIDI_SYSEX = "midiSysex"
     NFC = "nfc"
@@ -219,6 +220,7 @@ class BrowserCommandId(enum.Enum):
     '''
     OPEN_TAB_SEARCH = "openTabSearch"
     CLOSE_TAB_SEARCH = "closeTabSearch"
+    OPEN_GLIC = "openGlic"
 
     def to_json(self) -> str:
         return self.value
@@ -291,6 +293,18 @@ class Histogram:
             count=int(json['count']),
             buckets=[Bucket.from_json(i) for i in json['buckets']],
         )
+
+
+class PrivacySandboxAPI(enum.Enum):
+    BIDDING_AND_AUCTION_SERVICES = "BiddingAndAuctionServices"
+    TRUSTED_KEY_VALUE = "TrustedKeyValue"
+
+    def to_json(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_json(cls, json: str) -> PrivacySandboxAPI:
+        return cls(json)
 
 
 def set_permission(
@@ -619,6 +633,33 @@ def set_window_bounds(
     json = yield cmd_dict
 
 
+def set_contents_size(
+        window_id: WindowID,
+        width: typing.Optional[int] = None,
+        height: typing.Optional[int] = None
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,None]:
+    '''
+    Set size of the browser contents resizing browser window as necessary.
+
+    **EXPERIMENTAL**
+
+    :param window_id: Browser window id.
+    :param width: *(Optional)* The window contents width in DIP. Assumes current width if omitted. Must be specified if 'height' is omitted.
+    :param height: *(Optional)* The window contents height in DIP. Assumes current height if omitted. Must be specified if 'width' is omitted.
+    '''
+    params: T_JSON_DICT = dict()
+    params['windowId'] = window_id.to_json()
+    if width is not None:
+        params['width'] = width
+    if height is not None:
+        params['height'] = height
+    cmd_dict: T_JSON_DICT = {
+        'method': 'Browser.setContentsSize',
+        'params': params,
+    }
+    json = yield cmd_dict
+
+
 def set_dock_tile(
         badge_label: typing.Optional[str] = None,
         image: typing.Optional[str] = None
@@ -680,6 +721,36 @@ def add_privacy_sandbox_enrollment_override(
     json = yield cmd_dict
 
 
+def add_privacy_sandbox_coordinator_key_config(
+        api: PrivacySandboxAPI,
+        coordinator_origin: str,
+        key_config: str,
+        browser_context_id: typing.Optional[BrowserContextID] = None
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,None]:
+    '''
+    Configures encryption keys used with a given privacy sandbox API to talk
+    to a trusted coordinator.  Since this is intended for test automation only,
+    coordinatorOrigin must be a .test domain. No existing coordinator
+    configuration for the origin may exist.
+
+    :param api:
+    :param coordinator_origin:
+    :param key_config:
+    :param browser_context_id: *(Optional)* BrowserContext to perform the action in. When omitted, default browser context is used.
+    '''
+    params: T_JSON_DICT = dict()
+    params['api'] = api.to_json()
+    params['coordinatorOrigin'] = coordinator_origin
+    params['keyConfig'] = key_config
+    if browser_context_id is not None:
+        params['browserContextId'] = browser_context_id.to_json()
+    cmd_dict: T_JSON_DICT = {
+        'method': 'Browser.addPrivacySandboxCoordinatorKeyConfig',
+        'params': params,
+    }
+    json = yield cmd_dict
+
+
 @event_class('Browser.downloadWillBegin')
 @dataclass
 class DownloadWillBegin:
@@ -723,6 +794,10 @@ class DownloadProgress:
     received_bytes: float
     #: Download status.
     state: str
+    #: If download is "completed", provides the path of the downloaded file.
+    #: Depending on the platform, it is not guaranteed to be set, nor the file
+    #: is guaranteed to exist.
+    file_path: typing.Optional[str]
 
     @classmethod
     def from_json(cls, json: T_JSON_DICT) -> DownloadProgress:
@@ -730,5 +805,6 @@ class DownloadProgress:
             guid=str(json['guid']),
             total_bytes=float(json['totalBytes']),
             received_bytes=float(json['receivedBytes']),
-            state=str(json['state'])
+            state=str(json['state']),
+            file_path=str(json['filePath']) if json.get('filePath', None) is not None else None
         )
