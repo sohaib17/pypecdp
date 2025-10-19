@@ -86,6 +86,7 @@ class PseudoType(enum.Enum):
     BEFORE = "before"
     AFTER = "after"
     PICKER_ICON = "picker-icon"
+    INTEREST_HINT = "interest-hint"
     MARKER = "marker"
     BACKDROP = "backdrop"
     COLUMN = "column"
@@ -310,6 +311,8 @@ class Node:
 
     is_scrollable: typing.Optional[bool] = None
 
+    affected_by_starting_styles: typing.Optional[bool] = None
+
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         json['nodeId'] = self.node_id.to_json()
@@ -370,6 +373,8 @@ class Node:
             json['assignedSlot'] = self.assigned_slot.to_json()
         if self.is_scrollable is not None:
             json['isScrollable'] = self.is_scrollable
+        if self.affected_by_starting_styles is not None:
+            json['affectedByStartingStyles'] = self.affected_by_starting_styles
         return json
 
     @classmethod
@@ -407,6 +412,7 @@ class Node:
             compatibility_mode=CompatibilityMode.from_json(json['compatibilityMode']) if json.get('compatibilityMode', None) is not None else None,
             assigned_slot=BackendNode.from_json(json['assignedSlot']) if json.get('assignedSlot', None) is not None else None,
             is_scrollable=bool(json['isScrollable']) if json.get('isScrollable', None) is not None else None,
+            affected_by_starting_styles=bool(json['affectedByStartingStyles']) if json.get('affectedByStartingStyles', None) is not None else None,
         )
 
 
@@ -1731,14 +1737,15 @@ def get_container_for_node(
         container_name: typing.Optional[str] = None,
         physical_axes: typing.Optional[PhysicalAxes] = None,
         logical_axes: typing.Optional[LogicalAxes] = None,
-        queries_scroll_state: typing.Optional[bool] = None
+        queries_scroll_state: typing.Optional[bool] = None,
+        queries_anchored: typing.Optional[bool] = None
     ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,typing.Optional[NodeId]]:
     '''
     Returns the query container of the given node based on container query
     conditions: containerName, physical and logical axes, and whether it queries
-    scroll-state. If no axes are provided and queriesScrollState is false, the
-    style container is returned, which is the direct parent or the closest
-    element with a matching container-name.
+    scroll-state or anchored elements. If no axes are provided and
+    queriesScrollState is false, the style container is returned, which is the
+    direct parent or the closest element with a matching container-name.
 
     **EXPERIMENTAL**
 
@@ -1747,6 +1754,7 @@ def get_container_for_node(
     :param physical_axes: *(Optional)*
     :param logical_axes: *(Optional)*
     :param queries_scroll_state: *(Optional)*
+    :param queries_anchored: *(Optional)*
     :returns: *(Optional)* The container node for the given node, or null if not found.
     '''
     params: T_JSON_DICT = dict()
@@ -1759,6 +1767,8 @@ def get_container_for_node(
         params['logicalAxes'] = logical_axes.to_json()
     if queries_scroll_state is not None:
         params['queriesScrollState'] = queries_scroll_state
+    if queries_anchored is not None:
+        params['queriesAnchored'] = queries_anchored
     cmd_dict: T_JSON_DICT = {
         'method': 'DOM.getContainerForNode',
         'params': params,
@@ -1813,6 +1823,31 @@ def get_anchor_element(
     }
     json = yield cmd_dict
     return NodeId.from_json(json['nodeId'])
+
+
+def force_show_popover(
+        node_id: NodeId,
+        enable: bool
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,typing.List[NodeId]]:
+    '''
+    When enabling, this API force-opens the popover identified by nodeId
+    and keeps it open until disabled.
+
+    **EXPERIMENTAL**
+
+    :param node_id: Id of the popover HTMLElement
+    :param enable: If true, opens the popover and keeps it open. If false, closes the popover if it was previously force-opened.
+    :returns: List of popovers that were closed in order to respect popover stacking order.
+    '''
+    params: T_JSON_DICT = dict()
+    params['nodeId'] = node_id.to_json()
+    params['enable'] = enable
+    cmd_dict: T_JSON_DICT = {
+        'method': 'DOM.forceShowPopover',
+        'params': params,
+    }
+    json = yield cmd_dict
+    return [NodeId.from_json(i) for i in json['nodeIds']]
 
 
 @event_class('DOM.attributeModified')
@@ -2045,6 +2080,27 @@ class ScrollableFlagUpdated:
         return cls(
             node_id=NodeId.from_json(json['nodeId']),
             is_scrollable=bool(json['isScrollable'])
+        )
+
+
+@event_class('DOM.affectedByStartingStylesFlagUpdated')
+@dataclass
+class AffectedByStartingStylesFlagUpdated:
+    '''
+    **EXPERIMENTAL**
+
+    Fired when a node's starting styles changes.
+    '''
+    #: The id of the node.
+    node_id: NodeId
+    #: If the node has starting styles.
+    affected_by_starting_styles: bool
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AffectedByStartingStylesFlagUpdated:
+        return cls(
+            node_id=NodeId.from_json(json['nodeId']),
+            affected_by_starting_styles=bool(json['affectedByStartingStyles'])
         )
 
 

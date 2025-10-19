@@ -15,6 +15,7 @@ from . import browser
 from . import network
 from . import page
 from . import target
+from deprecated.sphinx import deprecated # type: ignore
 
 
 class SerializedStorageKey(str):
@@ -1308,11 +1309,15 @@ class RelatedWebsiteSet:
         )
 
 
+@deprecated(version="1.3")
 def get_storage_key_for_frame(
         frame_id: page.FrameId
     ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,SerializedStorageKey]:
     '''
     Returns a storage key given a frame id.
+    Deprecated. Please use Storage.getStorageKey instead.
+
+    .. deprecated:: 1.3
 
     :param frame_id:
     :returns: 
@@ -1321,6 +1326,29 @@ def get_storage_key_for_frame(
     params['frameId'] = frame_id.to_json()
     cmd_dict: T_JSON_DICT = {
         'method': 'Storage.getStorageKeyForFrame',
+        'params': params,
+    }
+    json = yield cmd_dict
+    return SerializedStorageKey.from_json(json['storageKey'])
+
+
+def get_storage_key(
+        frame_id: typing.Optional[page.FrameId] = None
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,SerializedStorageKey]:
+    '''
+    Returns storage key for the given frame. If no frame ID is provided,
+    the storage key of the target executing this command is returned.
+
+    **EXPERIMENTAL**
+
+    :param frame_id: *(Optional)*
+    :returns: 
+    '''
+    params: T_JSON_DICT = dict()
+    if frame_id is not None:
+        params['frameId'] = frame_id.to_json()
+    cmd_dict: T_JSON_DICT = {
+        'method': 'Storage.getStorageKey',
         'params': params,
     }
     json = yield cmd_dict

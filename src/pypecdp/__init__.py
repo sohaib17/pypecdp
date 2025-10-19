@@ -7,6 +7,7 @@ Exports:
 from __future__ import annotations
 
 import logging
+import importlib.metadata
 
 logger = logging.getLogger("pypecdp")
 if not logger.handlers:
@@ -18,4 +19,4 @@ from .elem import Elem
 from .tab import Tab
 
 __all__ = ["Browser", "Tab", "Elem", "Config"]
-__version__ = "0.1.7"
+__version__ = importlib.metadata.version(__name__)
