@@ -47,6 +47,21 @@ class BackendNodeId(int):
         return 'BackendNodeId({})'.format(super().__repr__())
 
 
+class StyleSheetId(str):
+    '''
+    Unique identifier for a CSS stylesheet.
+    '''
+    def to_json(self) -> str:
+        return self
+
+    @classmethod
+    def from_json(cls, json: str) -> StyleSheetId:
+        return cls(json)
+
+    def __repr__(self):
+        return 'StyleSheetId({})'.format(super().__repr__())
+
+
 @dataclass
 class BackendNode:
     '''
@@ -119,6 +134,8 @@ class PseudoType(enum.Enum):
     DETAILS_CONTENT = "details-content"
     PICKER = "picker"
     PERMISSION_ICON = "permission-icon"
+    OVERSCROLL_AREA_PARENT = "overscroll-area-parent"
+    OVERSCROLL_CLIENT_AREA = "overscroll-client-area"
 
     def to_json(self) -> str:
         return self.value
@@ -313,6 +330,8 @@ class Node:
 
     affected_by_starting_styles: typing.Optional[bool] = None
 
+    adopted_style_sheets: typing.Optional[typing.List[StyleSheetId]] = None
+
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         json['nodeId'] = self.node_id.to_json()
@@ -375,6 +394,8 @@ class Node:
             json['isScrollable'] = self.is_scrollable
         if self.affected_by_starting_styles is not None:
             json['affectedByStartingStyles'] = self.affected_by_starting_styles
+        if self.adopted_style_sheets is not None:
+            json['adoptedStyleSheets'] = [i.to_json() for i in self.adopted_style_sheets]
         return json
 
     @classmethod
@@ -413,6 +434,7 @@ class Node:
             assigned_slot=BackendNode.from_json(json['assignedSlot']) if json.get('assignedSlot', None) is not None else None,
             is_scrollable=bool(json['isScrollable']) if json.get('isScrollable', None) is not None else None,
             affected_by_starting_styles=bool(json['affectedByStartingStyles']) if json.get('affectedByStartingStyles', None) is not None else None,
+            adopted_style_sheets=[StyleSheetId.from_json(i) for i in json['adoptedStyleSheets']] if json.get('adoptedStyleSheets', None) is not None else None,
         )
 
 
@@ -1869,6 +1891,27 @@ class AttributeModified:
             node_id=NodeId.from_json(json['nodeId']),
             name=str(json['name']),
             value=str(json['value'])
+        )
+
+
+@event_class('DOM.adoptedStyleSheetsModified')
+@dataclass
+class AdoptedStyleSheetsModified:
+    '''
+    **EXPERIMENTAL**
+
+    Fired when ``Element``'s adoptedStyleSheets are modified.
+    '''
+    #: Id of the node that has changed.
+    node_id: NodeId
+    #: New adoptedStyleSheets array.
+    adopted_style_sheets: typing.List[StyleSheetId]
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AdoptedStyleSheetsModified:
+        return cls(
+            node_id=NodeId.from_json(json['nodeId']),
+            adopted_style_sheets=[StyleSheetId.from_json(i) for i in json['adoptedStyleSheets']]
         )
 
 

@@ -962,12 +962,13 @@ class GenericIssueErrorType(enum.Enum):
     FORM_INPUT_WITH_NO_LABEL_ERROR = "FormInputWithNoLabelError"
     FORM_AUTOCOMPLETE_ATTRIBUTE_EMPTY_ERROR = "FormAutocompleteAttributeEmptyError"
     FORM_EMPTY_ID_AND_NAME_ATTRIBUTES_FOR_INPUT_ERROR = "FormEmptyIdAndNameAttributesForInputError"
-    FORM_ARIA_LABELLED_BY_TO_NON_EXISTING_ID = "FormAriaLabelledByToNonExistingId"
+    FORM_ARIA_LABELLED_BY_TO_NON_EXISTING_ID_ERROR = "FormAriaLabelledByToNonExistingIdError"
     FORM_INPUT_ASSIGNED_AUTOCOMPLETE_VALUE_TO_ID_OR_NAME_ATTRIBUTE_ERROR = "FormInputAssignedAutocompleteValueToIdOrNameAttributeError"
-    FORM_LABEL_HAS_NEITHER_FOR_NOR_NESTED_INPUT = "FormLabelHasNeitherForNorNestedInput"
+    FORM_LABEL_HAS_NEITHER_FOR_NOR_NESTED_INPUT_ERROR = "FormLabelHasNeitherForNorNestedInputError"
     FORM_LABEL_FOR_MATCHES_NON_EXISTING_ID_ERROR = "FormLabelForMatchesNonExistingIdError"
     FORM_INPUT_HAS_WRONG_BUT_WELL_INTENDED_AUTOCOMPLETE_VALUE_ERROR = "FormInputHasWrongButWellIntendedAutocompleteValueError"
     RESPONSE_WAS_BLOCKED_BY_ORB = "ResponseWasBlockedByORB"
+    NAVIGATION_ENTRY_MARKED_SKIPPABLE = "NavigationEntryMarkedSkippable"
 
     def to_json(self) -> str:
         return self.value
@@ -1499,6 +1500,99 @@ class UserReidentificationIssueDetails:
         )
 
 
+class PermissionElementIssueType(enum.Enum):
+    INVALID_TYPE = "InvalidType"
+    FENCED_FRAME_DISALLOWED = "FencedFrameDisallowed"
+    CSP_FRAME_ANCESTORS_MISSING = "CspFrameAncestorsMissing"
+    PERMISSIONS_POLICY_BLOCKED = "PermissionsPolicyBlocked"
+    PADDING_RIGHT_UNSUPPORTED = "PaddingRightUnsupported"
+    PADDING_BOTTOM_UNSUPPORTED = "PaddingBottomUnsupported"
+    INSET_BOX_SHADOW_UNSUPPORTED = "InsetBoxShadowUnsupported"
+    REQUEST_IN_PROGRESS = "RequestInProgress"
+    UNTRUSTED_EVENT = "UntrustedEvent"
+    REGISTRATION_FAILED = "RegistrationFailed"
+    TYPE_NOT_SUPPORTED = "TypeNotSupported"
+    INVALID_TYPE_ACTIVATION = "InvalidTypeActivation"
+    SECURITY_CHECKS_FAILED = "SecurityChecksFailed"
+    ACTIVATION_DISABLED = "ActivationDisabled"
+    GEOLOCATION_DEPRECATED = "GeolocationDeprecated"
+    INVALID_DISPLAY_STYLE = "InvalidDisplayStyle"
+    NON_OPAQUE_COLOR = "NonOpaqueColor"
+    LOW_CONTRAST = "LowContrast"
+    FONT_SIZE_TOO_SMALL = "FontSizeTooSmall"
+    FONT_SIZE_TOO_LARGE = "FontSizeTooLarge"
+    INVALID_SIZE_VALUE = "InvalidSizeValue"
+
+    def to_json(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_json(cls, json: str) -> PermissionElementIssueType:
+        return cls(json)
+
+
+@dataclass
+class PermissionElementIssueDetails:
+    '''
+    This issue warns about improper usage of the <permission> element.
+    '''
+    issue_type: PermissionElementIssueType
+
+    #: The value of the type attribute.
+    type_: typing.Optional[str] = None
+
+    #: The node ID of the <permission> element.
+    node_id: typing.Optional[dom.BackendNodeId] = None
+
+    #: True if the issue is a warning, false if it is an error.
+    is_warning: typing.Optional[bool] = None
+
+    #: Fields for message construction:
+    #: Used for messages that reference a specific permission name
+    permission_name: typing.Optional[str] = None
+
+    #: Used for messages about occlusion
+    occluder_node_info: typing.Optional[str] = None
+
+    #: Used for messages about occluder's parent
+    occluder_parent_node_info: typing.Optional[str] = None
+
+    #: Used for messages about activation disabled reason
+    disable_reason: typing.Optional[str] = None
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        json['issueType'] = self.issue_type.to_json()
+        if self.type_ is not None:
+            json['type'] = self.type_
+        if self.node_id is not None:
+            json['nodeId'] = self.node_id.to_json()
+        if self.is_warning is not None:
+            json['isWarning'] = self.is_warning
+        if self.permission_name is not None:
+            json['permissionName'] = self.permission_name
+        if self.occluder_node_info is not None:
+            json['occluderNodeInfo'] = self.occluder_node_info
+        if self.occluder_parent_node_info is not None:
+            json['occluderParentNodeInfo'] = self.occluder_parent_node_info
+        if self.disable_reason is not None:
+            json['disableReason'] = self.disable_reason
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> PermissionElementIssueDetails:
+        return cls(
+            issue_type=PermissionElementIssueType.from_json(json['issueType']),
+            type_=str(json['type']) if json.get('type', None) is not None else None,
+            node_id=dom.BackendNodeId.from_json(json['nodeId']) if json.get('nodeId', None) is not None else None,
+            is_warning=bool(json['isWarning']) if json.get('isWarning', None) is not None else None,
+            permission_name=str(json['permissionName']) if json.get('permissionName', None) is not None else None,
+            occluder_node_info=str(json['occluderNodeInfo']) if json.get('occluderNodeInfo', None) is not None else None,
+            occluder_parent_node_info=str(json['occluderParentNodeInfo']) if json.get('occluderParentNodeInfo', None) is not None else None,
+            disable_reason=str(json['disableReason']) if json.get('disableReason', None) is not None else None,
+        )
+
+
 class InspectorIssueCode(enum.Enum):
     '''
     A unique identifier for the type of issue. Each type may use one of the
@@ -1531,6 +1625,7 @@ class InspectorIssueCode(enum.Enum):
     SRI_MESSAGE_SIGNATURE_ISSUE = "SRIMessageSignatureIssue"
     UNENCODED_DIGEST_ISSUE = "UnencodedDigestIssue"
     USER_REIDENTIFICATION_ISSUE = "UserReidentificationIssue"
+    PERMISSION_ELEMENT_ISSUE = "PermissionElementIssue"
 
     def to_json(self) -> str:
         return self.value
@@ -1599,6 +1694,8 @@ class InspectorIssueDetails:
 
     user_reidentification_issue_details: typing.Optional[UserReidentificationIssueDetails] = None
 
+    permission_element_issue_details: typing.Optional[PermissionElementIssueDetails] = None
+
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         if self.cookie_issue_details is not None:
@@ -1653,6 +1750,8 @@ class InspectorIssueDetails:
             json['unencodedDigestIssueDetails'] = self.unencoded_digest_issue_details.to_json()
         if self.user_reidentification_issue_details is not None:
             json['userReidentificationIssueDetails'] = self.user_reidentification_issue_details.to_json()
+        if self.permission_element_issue_details is not None:
+            json['permissionElementIssueDetails'] = self.permission_element_issue_details.to_json()
         return json
 
     @classmethod
@@ -1684,6 +1783,7 @@ class InspectorIssueDetails:
             sri_message_signature_issue_details=SRIMessageSignatureIssueDetails.from_json(json['sriMessageSignatureIssueDetails']) if json.get('sriMessageSignatureIssueDetails', None) is not None else None,
             unencoded_digest_issue_details=UnencodedDigestIssueDetails.from_json(json['unencodedDigestIssueDetails']) if json.get('unencodedDigestIssueDetails', None) is not None else None,
             user_reidentification_issue_details=UserReidentificationIssueDetails.from_json(json['userReidentificationIssueDetails']) if json.get('userReidentificationIssueDetails', None) is not None else None,
+            permission_element_issue_details=PermissionElementIssueDetails.from_json(json['permissionElementIssueDetails']) if json.get('permissionElementIssueDetails', None) is not None else None,
         )
 
 

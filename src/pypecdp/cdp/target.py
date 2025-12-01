@@ -632,8 +632,31 @@ def set_remote_locations(
     json = yield cmd_dict
 
 
-def open_dev_tools(
+def get_dev_tools_target(
         target_id: TargetID
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,typing.Optional[TargetID]]:
+    '''
+    Gets the targetId of the DevTools page target opened for the given target
+    (if any).
+
+    **EXPERIMENTAL**
+
+    :param target_id: Page or tab target ID.
+    :returns: *(Optional)* The targetId of DevTools page target if exists.
+    '''
+    params: T_JSON_DICT = dict()
+    params['targetId'] = target_id.to_json()
+    cmd_dict: T_JSON_DICT = {
+        'method': 'Target.getDevToolsTarget',
+        'params': params,
+    }
+    json = yield cmd_dict
+    return TargetID.from_json(json['targetId']) if json.get('targetId', None) is not None else None
+
+
+def open_dev_tools(
+        target_id: TargetID,
+        panel_id: typing.Optional[str] = None
     ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,TargetID]:
     '''
     Opens a DevTools window for the target.
@@ -641,10 +664,13 @@ def open_dev_tools(
     **EXPERIMENTAL**
 
     :param target_id: This can be the page or tab target ID.
+    :param panel_id: *(Optional)* The id of the panel we want DevTools to open initially. Currently supported panels are elements, console, network, sources, resources and performance.
     :returns: The targetId of DevTools page target.
     '''
     params: T_JSON_DICT = dict()
     params['targetId'] = target_id.to_json()
+    if panel_id is not None:
+        params['panelId'] = panel_id
     cmd_dict: T_JSON_DICT = {
         'method': 'Target.openDevTools',
         'params': params,

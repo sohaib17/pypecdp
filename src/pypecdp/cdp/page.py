@@ -206,6 +206,7 @@ class PermissionsPolicyFeature(enum.Enum):
     AMBIENT_LIGHT_SENSOR = "ambient-light-sensor"
     ARIA_NOTIFY = "aria-notify"
     ATTRIBUTION_REPORTING = "attribution-reporting"
+    AUTOFILL = "autofill"
     AUTOPLAY = "autoplay"
     BLUETOOTH = "bluetooth"
     BROWSING_TOPICS = "browsing-topics"
@@ -271,6 +272,7 @@ class PermissionsPolicyFeature(enum.Enum):
     LOCAL_FONTS = "local-fonts"
     LOCAL_NETWORK_ACCESS = "local-network-access"
     MAGNETOMETER = "magnetometer"
+    MANUAL_TEXT = "manual-text"
     MEDIA_PLAYBACK_WHILE_NOT_VISIBLE = "media-playback-while-not-visible"
     MICROPHONE = "microphone"
     MIDI = "midi"
@@ -278,7 +280,6 @@ class PermissionsPolicyFeature(enum.Enum):
     OTP_CREDENTIALS = "otp-credentials"
     PAYMENT = "payment"
     PICTURE_IN_PICTURE = "picture-in-picture"
-    POPINS = "popins"
     PRIVATE_AGGREGATION = "private-aggregation"
     PRIVATE_STATE_TOKEN_ISSUANCE = "private-state-token-issuance"
     PRIVATE_STATE_TOKEN_REDEMPTION = "private-state-token-redemption"
@@ -289,7 +290,6 @@ class PermissionsPolicyFeature(enum.Enum):
     RUN_AD_AUCTION = "run-ad-auction"
     SCREEN_WAKE_LOCK = "screen-wake-lock"
     SERIAL = "serial"
-    SHARED_AUTOFILL = "shared-autofill"
     SHARED_STORAGE = "shared-storage"
     SHARED_STORAGE_SELECT_URL = "shared-storage-select-url"
     SMART_CARD = "smart-card"
@@ -3390,6 +3390,29 @@ def set_prerendering_allowed(
         'params': params,
     }
     json = yield cmd_dict
+
+
+def get_annotated_page_content(
+        include_actionable_information: typing.Optional[bool] = None
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,str]:
+    '''
+    Get the annotated page content for the main frame.
+    This is an experimental command that is subject to change.
+
+    **EXPERIMENTAL**
+
+    :param include_actionable_information: *(Optional)* Whether to include actionable information. Defaults to true.
+    :returns: The annotated page content as a base64 encoded protobuf. The format is defined by the ``AnnotatedPageContent`` message in components/optimization_guide/proto/features/common_quality_data.proto (Encoded as a base64 string when passed over JSON)
+    '''
+    params: T_JSON_DICT = dict()
+    if include_actionable_information is not None:
+        params['includeActionableInformation'] = include_actionable_information
+    cmd_dict: T_JSON_DICT = {
+        'method': 'Page.getAnnotatedPageContent',
+        'params': params,
+    }
+    json = yield cmd_dict
+    return str(json['content'])
 
 
 @event_class('Page.domContentEventFired')
