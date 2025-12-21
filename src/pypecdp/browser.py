@@ -280,21 +280,17 @@ class Browser:
             tid = str(info.target_id)
             typ = info.type_
             if tid and typ in {"page", "worker", "service_worker"}:
-                # Convert info to dict for storage
-                # info_dict = vars(info) if hasattr(info, "__dict__") else {}
                 self.targets.setdefault(tid, Tab(self, TargetID(tid), info))
-            return None
 
-        if method == cdp.target.TargetDestroyed:
+        elif method == cdp.target.TargetDestroyed:
             # event is a TargetDestroyed object with target_id attribute
             tid = str(event.target_id)
             if tid:
                 tab = self.targets.pop(tid, None)
                 if tab and tab.session_id:
                     self._session_to_tab.pop(tab.session_id, None)
-            return None
 
-        if method == cdp.target.AttachedToTarget:
+        elif method == cdp.target.AttachedToTarget:
             # event is an AttachedToTarget object with session_id and target_info attributes
             sid = str(event.session_id)
             tid = str(event.target_info.target_id)
@@ -302,9 +298,8 @@ class Browser:
                 tab = self.targets.setdefault(tid, Tab(self, TargetID(tid)))
                 tab.session_id = sid
                 self._session_to_tab[sid] = tab
-            return None
 
-        if method == cdp.target.DetachedFromTarget:
+        elif method == cdp.target.DetachedFromTarget:
             # event is a DetachedFromTarget object with session_id attribute
             sid = str(event.session_id)
             if sid:
@@ -312,7 +307,7 @@ class Browser:
                 if tab:
                     tab.session_id = None
 
-        if method == cdp.target.TargetInfoChanged:
+        elif method == cdp.target.TargetInfoChanged:
             # event is a TargetInfoChanged object with target_info attribute
             info = event.target_info
             tid = str(info.target_id)
@@ -320,8 +315,8 @@ class Browser:
                 tab = self.targets.get(tid)
                 if tab:
                     tab.target_info = info
-            return None
 
+        # Dispatch to registered browser-level handlers
         for h in self._handlers.get(method, []):
             try:
                 if asyncio.iscoroutinefunction(h) or asyncio.iscoroutine(h):
@@ -330,6 +325,10 @@ class Browser:
                     h(event)
             except Exception:
                 logger.exception("Browser handler error for %s", method)
+
+    def clear_handlers(self):
+        """Clear all registered event handlers for this browser."""
+        self._handlers.clear()
 
     # User API ---------------------------------------------------------------
 

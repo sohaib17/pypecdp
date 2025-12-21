@@ -105,6 +105,10 @@ class Tab:
             except Exception:
                 logger.exception("Tab handler error for %s", method)
 
+    def clear_handlers(self):
+        """Clear all registered event handlers for this tab."""
+        self._handlers.clear()
+
     # Navigation & evaluation ------------------------------------------------
 
     async def navigate(
@@ -158,15 +162,15 @@ class Tab:
 
         Args:
             expression: JavaScript code to evaluate.
-            await_promise: Whether to await if expression returns a
-                Promise.
+            await_promise: Whether to await if expression returns a Promise.
 
         Returns:
-            The result of the evaluation.
+            The result of the evaluation (RemoteObject or primitive value).
         """
         result, _ = await self.send(
             cdp.runtime.evaluate(
-                expression=expression, await_promise=await_promise
+                expression=expression,
+                await_promise=await_promise,
             )
         )
         return result
