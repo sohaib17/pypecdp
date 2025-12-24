@@ -13,7 +13,8 @@ import os
 from pypecdp import Browser
 
 
-async def main():
+async def main() -> None:
+    """Main."""
     # Launch browser
     browser = await Browser.start(
         chrome_path=os.environ.get("PYPECDP_CHROME_PATH", "chromium"),

@@ -10,9 +10,9 @@ Inspired by playwright-python, python-cdp and nodriver.
 
 - **Fully Async**: Built from ground up with asyncio for concurrent operations
 - **Fast**: Direct pipe communication via file descriptors - no websockets, no network overhead
+- **Zero dependencies**: No external dependencies required - built-in Python libraries only
 - **Secure**: Browser only communicates over local pipes, no open ports accessible to other processes
 - **No zombies**: No risk of orphaned Chrome processes - automatic lifecycle management
-- **Zero dependencies**: No external dependencies required
 - **Linux focused**: Leverages POSIX pipes and process management
 
 ## Install
@@ -108,6 +108,32 @@ async def on_target_created(event):
     print(f"Target created: {info.type_} - {info.url}")
 
 browser.on(cdp.target.TargetCreated, on_target_created)
+```
+
+### Logging
+
+pypecdp uses Python's standard logging module. Configure via environment variables:
+
+```bash
+# Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+export PYPECDP_LOG_LEVEL=DEBUG
+
+# Set custom logger name
+export PYPECDP_LOGGER=myapp.browser
+```
+
+Or configure the logger directly in Python:
+
+```python
+from pypecdp import logger
+import logging
+
+# Set log level
+logger.setLevel(logging.DEBUG)
+
+# Add custom handler
+handler = logging.FileHandler("pypecdp.log")
+logger.addHandler(handler)
 ```
 
 ## Error Handling

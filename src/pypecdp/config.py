@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import pathlib
 import tempfile
 from dataclasses import dataclass, field
 
-logger = logging.getLogger("pypecdp")
+from .logger import logger
 
 
 @dataclass
@@ -34,7 +33,7 @@ class Config:
 
     def ensure_user_data_dir(
         self,
-    ):
+    ) -> str:
         """Ensure user data directory exists and return its path.
 
         If user_data_dir is not set, creates a temporary directory.
@@ -42,7 +41,7 @@ class Config:
         Returns:
             str: Path to the user data directory.
         """
-        data_dir = self.user_data_dir
+        data_dir: str | None = self.user_data_dir
         if not data_dir:
             data_dir = os.path.join(tempfile.gettempdir(), ".pypecdp-profile")
             self.user_data_dir = data_dir
@@ -52,7 +51,7 @@ class Config:
 
     def build_argv(
         self,
-    ):
+    ) -> list[str]:
         """Build command-line arguments for Chrome launch.
 
         Constructs the full argument list including headless mode,
@@ -90,7 +89,7 @@ class Config:
 
     def build_env(
         self,
-    ):
+    ) -> dict[str, str]:
         """Build environment variables for Chrome process.
 
         Merges current environment with custom overrides.
@@ -98,7 +97,7 @@ class Config:
         Returns:
             dict[str, str]: Complete environment variable mapping.
         """
-        env = dict(os.environ)
+        env: dict[str, str] = dict(os.environ)
         env.update(self.env)
         logger.debug("Built child env overrides: %s", self.env)
         return env

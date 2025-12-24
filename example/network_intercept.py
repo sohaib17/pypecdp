@@ -11,13 +11,15 @@ Demonstrates network request interception and modification:
 import asyncio
 import base64
 import os
+from typing import Any
 
 from pypecdp import Browser, cdp
 from pypecdp.cdp.fetch import HeaderEntry, RequestPattern, RequestStage
 from pypecdp.cdp.network import ErrorReason, ResourceType
 
 
-async def main():
+async def main() -> None:
+    """Main."""
     # Launch browser
     browser = await Browser.start(
         chrome_path=os.environ.get("PYPECDP_CHROME_PATH", "chromium"),
@@ -45,7 +47,7 @@ async def main():
     intercepted_count = {"total": 0, "blocked": 0, "modified": 0}
 
     # Handler for Fetch.requestPaused events
-    async def handle_request(event):
+    async def handle_request(event: Any) -> None:
         # event is a RequestPaused object with attributes
         request_id = event.request_id
         request = event.request
@@ -66,15 +68,15 @@ async def main():
                     )
                 )
             )
-            return
+            return None
 
         # Modify request headers for other resources
         if resource_type in (ResourceType.DOCUMENT, ResourceType.XHR):
-            headers = dict(request.headers)
-            headers["X-Custom-Header"] = "pypecdp-example"
-            headers["User-Agent"] = "pypecdp/1.0 (Custom Bot)"
-            headers = [
-                HeaderEntry(name=k, value=v) for k, v in headers.items()
+            headers_dict = dict(request.headers)
+            headers_dict["X-Custom-Header"] = "pypecdp-example"
+            headers_dict["User-Agent"] = "pypecdp/1.0 (Custom Bot)"
+            headers: list[HeaderEntry] = [
+                HeaderEntry(name=k, value=v) for k, v in headers_dict.items()
             ]
 
             print(f"[+] Modifying headers for {resource_type}: {url}")
@@ -88,7 +90,7 @@ async def main():
                     )
                 )
             )
-            return
+            return None
 
         # Continue all other requests normally
         asyncio.ensure_future(
@@ -141,7 +143,7 @@ async def main():
     )
 
     # New handler for mocking
-    async def mock_json_response(event):
+    async def mock_json_response(event: Any) -> None:
         # event is a RequestPaused object with attributes
         request_id = event.request_id
         request = event.request

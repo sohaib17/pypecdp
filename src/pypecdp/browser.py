@@ -1,17 +1,18 @@
 """High-level browser control and CDP message routing."""
 
+from __future__ import annotations
+
 import asyncio
 import json
-import logging
-import os
+from typing import Any, Callable
 
 # Local CDP modules
 from . import cdp
 from .cdp.target import TargetID
-from .cdp_pipe import launch_chrome_with_pipe
+from .cdp_pipe import _Writer, launch_chrome_with_pipe
 from .config import Config
-
-logger = logging.getLogger(os.environ.get("PYPECDP_LOGGER", "pypecdp"))
+from .logger import logger
+from .tab import Tab
 
 
 class Browser:
@@ -30,15 +31,15 @@ class Browser:
 
     def __init__(
         self,
-        config=None,
+        config: Config | None = None,
         *,
-        chrome_path="chromium",
-        user_data_dir=None,
-        headless=True,
-        extra_args=None,
-        switches=None,
-        env=None,
-    ):
+        chrome_path: str = "chromium",
+        user_data_dir: str | None = None,
+        headless: bool = True,
+        extra_args: list[str] | None = None,
+        switches: dict[str, str | None] | None = None,
+        env: dict[str, str] | None = None,
+    ) -> None:
         """Initialize Browser instance.
 
         Args:
@@ -52,7 +53,7 @@ class Browser:
             switches: Dictionary of Chrome switches to add.
             env: Environment variables to set for browser process.
         """
-        self.config = config or Config(
+        self.config: Config = config or Config(
             chrome_path=chrome_path,
             user_data_dir=user_data_dir,
             headless=headless,
@@ -60,24 +61,24 @@ class Browser:
             switches=dict(switches or {}),
             env=dict(env or {}),
         )
-        self.proc = None
-        self.reader = None
-        self.writer = None
-        self._msg_id = 0
-        self._pending = {}
-        self._recv_task = None
-        self.targets = {}
-        self._session_to_tab = {}
-        self._handlers = {}
+        self.proc: asyncio.subprocess.Process | None = None
+        self.reader: asyncio.StreamReader | None = None
+        self.writer: _Writer | None = None
+        self._msg_id: int = 0
+        self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        self._recv_task: asyncio.Task[None] | None = None
+        self.targets: dict[str, Tab] = {}
+        self._session_to_tab: dict[str, Tab] = {}
+        self._handlers: dict[type[Any], list[Callable[[Any], Any]]] = {}
 
     # Lifecycle --------------------------------------------------------------
 
     @classmethod
     async def start(
         cls,
-        config=None,
-        **kwargs,
-    ):
+        config: Config | None = None,
+        **kwargs: Any,
+    ) -> Browser:
         """Start a new Browser instance.
 
         Args:
@@ -95,7 +96,7 @@ class Browser:
 
     async def _launch(
         self,
-    ):
+    ) -> None:
         """Launch the Chrome browser process and initialize CDP connection.
 
         Sets up the browser subprocess, pipe communication, and enables
@@ -109,7 +110,7 @@ class Browser:
 
     async def close(
         self,
-    ):
+    ) -> None:
         """Close the browser and clean up resources.
 
         Closes all tabs, terminates the browser process, and cancels
@@ -150,10 +151,10 @@ class Browser:
 
     async def send(
         self,
-        cmd,
+        cmd: Any,
         *,
-        session_id=None,
-    ):
+        session_id: str | None = None,
+    ) -> Any:
         """Send a CDP command and await its response.
 
         Args:
@@ -168,30 +169,34 @@ class Browser:
             ConnectionError: If the CDP pipe is closed.
         """
         method, *params = next(cmd).values()
-        payload = params.pop() if params else {}
+        payload: dict[str, Any] = params.pop() if params else {}
         self._msg_id += 1
-        msg_id = self._msg_id
-        msg = {"id": msg_id, "method": method}
+        msg_id: int = self._msg_id
+        msg: dict[str, Any] = {"id": msg_id, "method": method}
         if payload:
             msg["params"] = payload
         if session_id:
             msg["sessionId"] = str(session_id)
 
-        fut = asyncio.get_running_loop().create_future()
+        fut: asyncio.Future[dict[str, Any]] = (
+            asyncio.get_running_loop().create_future()
+        )
         self._pending[msg_id] = fut
 
         assert self.writer is not None, "Browser not launched"
-        raw = (json.dumps(msg, separators=(",", ":")) + "\0").encode("utf-8")
+        raw: bytes = (json.dumps(msg, separators=(",", ":")) + "\0").encode(
+            "utf-8"
+        )
         self.writer.write(raw)
         await self.writer.drain()
 
-        resp = await fut
+        resp: dict[str, Any] = await fut
         if "error" in resp:
             err = resp["error"]
             raise RuntimeError(f"CDP error {err})")
 
         # Send the result to the generator to get the parsed response
-        result = resp.get("result", {})
+        result: dict[str, Any] = resp.get("result", {})
         try:
             cmd.send(result)
             raise RuntimeError("CDP generator did not exit as expected")
@@ -200,7 +205,7 @@ class Browser:
 
     async def _recv_loop(
         self,
-    ):
+    ) -> None:
         """Receive and dispatch CDP messages from the browser.
 
         Continuously reads messages from the CDP pipe, resolves pending
@@ -210,7 +215,7 @@ class Browser:
         assert self.reader is not None
         while True:
             try:
-                line = await self.reader.readuntil(separator=b"\0")
+                line: bytes = await self.reader.readuntil(separator=b"\0")
             except asyncio.IncompleteReadError:
                 logger.info("CDP pipe closed by browser")
                 for fut in self._pending.values():
@@ -226,13 +231,13 @@ class Browser:
                 return None
 
             try:
-                msg = json.loads(line[:-1])
+                msg: dict[str, Any] = json.loads(line[:-1])
             except Exception as exc:
                 logger.exception("JSON parse error in CDP recv: %s", exc)
                 continue
 
             if "id" in msg:
-                msg_id = msg["id"]
+                msg_id: int = msg["id"]
                 if msg_id in self._pending:
                     fut = self._pending.pop(msg_id)
                     if not fut.done():
@@ -240,11 +245,11 @@ class Browser:
                 continue
 
             # Parse event into typed CDP object
-            method = msg.get("method")
-            session_id = msg.get("sessionId")
+            method: str | None = msg.get("method")
+            session_id: str | None = msg.get("sessionId")
 
             try:
-                event = cdp.util.parse_json_event(msg)
+                event: Any = cdp.util.parse_json_event(msg)
             except (KeyError, AttributeError) as exc:
                 # Event type not recognized or not registered
                 logger.error(
@@ -255,7 +260,7 @@ class Browser:
                 continue
 
             if session_id:
-                tab = self._session_to_tab.get(session_id)
+                tab: Tab | None = self._session_to_tab.get(session_id)
                 if tab:
                     await tab.handle_event(event)
             else:
@@ -263,8 +268,8 @@ class Browser:
 
     async def _handle_browser_event(
         self,
-        event,
-    ):
+        event: Any,
+    ) -> None:
         """Handle browser-level CDP events.
 
         Processes target lifecycle events (creation, destruction,
@@ -273,12 +278,12 @@ class Browser:
         Args:
             event: CDP event object to handle.
         """
-        method = type(event)
+        method: type[Any] = type(event)
         if method == cdp.target.TargetCreated:
             # event is a TargetCreated object with target_info attribute
             info = event.target_info
-            tid = str(info.target_id)
-            typ = info.type_
+            tid: str = str(info.target_id)
+            typ: str = info.type_
             if tid and typ in {"page", "worker", "service_worker"}:
                 self.targets.setdefault(tid, Tab(self, TargetID(tid), info))
 
@@ -286,13 +291,13 @@ class Browser:
             # event is a TargetDestroyed object with target_id attribute
             tid = str(event.target_id)
             if tid:
-                tab = self.targets.pop(tid, None)
+                tab: Tab | None = self.targets.pop(tid, None)
                 if tab and tab.session_id:
                     self._session_to_tab.pop(tab.session_id, None)
 
         elif method == cdp.target.AttachedToTarget:
             # event is an AttachedToTarget object with session_id and target_info attributes
-            sid = str(event.session_id)
+            sid: str = str(event.session_id)
             tid = str(event.target_info.target_id)
             if sid and tid:
                 tab = self.targets.setdefault(tid, Tab(self, TargetID(tid)))
@@ -326,7 +331,7 @@ class Browser:
             except Exception:
                 logger.exception("Browser handler error for %s", method)
 
-    def clear_handlers(self):
+    def clear_handlers(self) -> None:
         """Clear all registered event handlers for this browser."""
         self._handlers.clear()
 
@@ -334,9 +339,9 @@ class Browser:
 
     async def get(
         self,
-        url,
-        new_tab=False,
-    ):
+        url: str,
+        new_tab: bool = False,
+    ) -> Tab:
         """Navigate to a URL in a tab.
 
         Args:
@@ -352,7 +357,7 @@ class Browser:
             for tab in self.targets.values():
                 if tab.target_info and tab.target_info.type_ == "page":
                     if not tab.session_id:
-                        target_id = tab.target_id
+                        target_id: TargetID = tab.target_id
                         # Attach to target and get session ID
                         tab.session_id = await self.send(
                             cdp.target.attach_to_target(
@@ -368,7 +373,7 @@ class Browser:
         target_id = await self.send(
             cdp.target.create_target(url=url, new_window=False)
         )
-        tid = str(target_id)
+        tid: str = str(target_id)
         tab = self.targets.setdefault(tid, Tab(self, target_id, None))
         # Attach to target and get session ID
         tab.session_id = await self.send(
@@ -384,9 +389,9 @@ class Browser:
 
     def on(
         self,
-        event_name,
-        handler,
-    ):
+        event_name: type[Any],
+        handler: Callable[[Any], Any],
+    ) -> None:
         """Register an event handler for browser-level events.
 
         Args:
@@ -394,6 +399,3 @@ class Browser:
             handler: Callback function or coroutine to handle the event.
         """
         self._handlers.setdefault(event_name, []).append(handler)
-
-
-from .tab import Tab

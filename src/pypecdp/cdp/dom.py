@@ -135,7 +135,6 @@ class PseudoType(enum.Enum):
     PICKER = "picker"
     PERMISSION_ICON = "permission-icon"
     OVERSCROLL_AREA_PARENT = "overscroll-area-parent"
-    OVERSCROLL_CLIENT_AREA = "overscroll-client-area"
 
     def to_json(self) -> str:
         return self.value

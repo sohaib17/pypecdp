@@ -10,11 +10,13 @@ Demonstrates how to capture and monitor console messages from the browser:
 import asyncio
 import base64
 import os
+from typing import Any
 
 from pypecdp import Browser, cdp
 
 
-async def main():
+async def main() -> None:
+    """Main."""
     # Launch browser
     browser = await Browser.start(
         chrome_path=os.environ.get("PYPECDP_CHROME_PATH", "chromium"),
@@ -26,10 +28,10 @@ async def main():
     print("Browser launched\n")
 
     # Storage for console messages
-    console_messages = []
+    console_messages: list[tuple[str, str]] = []
 
     # Handler for console API calls
-    async def handle_console(event):
+    async def handle_console(event: Any) -> None:
         """Handle Runtime.consoleAPICalled events."""
         # event is a ConsoleAPICalled object
         msg_type = event.type_
@@ -145,7 +147,7 @@ async def main():
     print(f"Total console messages captured: {len(console_messages)}")
 
     # Count by type
-    type_counts = {}
+    type_counts: dict[str, int] = {}
     for msg_type, _ in console_messages:
         type_counts[msg_type] = type_counts.get(msg_type, 0) + 1
 

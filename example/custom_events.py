@@ -11,21 +11,23 @@ Demonstrates event handling and monitoring for browser targets:
 import asyncio
 import os
 from datetime import datetime
+from typing import Any
 
 from pypecdp import Browser, cdp
 
 
-def timestamp():
+def timestamp() -> str:
     """Return current timestamp string."""
     return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
 
-async def main():
+async def main() -> None:
+    """Main."""
     # Event tracking
-    events_log = []
+    events_log: list[str] = []
 
     # Handler for target creation
-    async def on_target_created(event):
+    async def on_target_created(event: Any) -> None:
         # event is a TargetCreated object with target_info attribute
         info = event.target_info
         target_type = info.type_
@@ -36,7 +38,7 @@ async def main():
         print(msg)
 
     # Handler for target destruction
-    async def on_target_destroyed(event):
+    async def on_target_destroyed(event: Any) -> None:
         # event is a TargetDestroyed object with target_id attribute
         target_id = str(event.target_id)
 
@@ -45,7 +47,7 @@ async def main():
         print(msg)
 
     # Handler for target attachment
-    async def on_attached(event):
+    async def on_attached(event: Any) -> None:
         # event is an AttachedToTarget object with session_id and target_info attributes
         session_id = str(event.session_id)
         target_id = str(event.target_info.target_id)
@@ -55,7 +57,7 @@ async def main():
         print(msg)
 
     # Handler for target detachment
-    async def on_detached(event):
+    async def on_detached(event: Any) -> None:
         # event is a DetachedFromTarget object with session_id attribute
         session_id = str(event.session_id)
 
@@ -64,7 +66,7 @@ async def main():
         print(msg)
 
     # Handler for target info changes
-    async def on_target_info_changed(event):
+    async def on_target_info_changed(event: Any) -> None:
         # event is a TargetInfoChanged object with target_info attribute
         info = event.target_info
         target_id = str(info.target_id)
@@ -135,7 +137,7 @@ async def main():
     print("Adding second handler for targetCreated...")
     print("=" * 60 + "\n")
 
-    async def second_target_created_handler(event):
+    async def second_target_created_handler(event: Any) -> None:
         # event is a TargetCreated object with target_info attribute
         target_type = event.target_info.type_
         print(f"  [Secondary handler] Detected {target_type} target")
@@ -153,7 +155,7 @@ async def main():
     print(f"Total events captured: {len(events_log)}\n")
 
     # Count events by type
-    event_types = {}
+    event_types: dict[str, int] = {}
     for log in events_log:
         if "created" in log:
             event_types["created"] = event_types.get("created", 0) + 1

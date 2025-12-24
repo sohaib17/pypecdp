@@ -386,6 +386,24 @@ class ResourcePriority(enum.Enum):
         return cls(json)
 
 
+class RenderBlockingBehavior(enum.Enum):
+    '''
+    The render blocking behavior of a resource request.
+    '''
+    BLOCKING = "Blocking"
+    IN_BODY_PARSER_BLOCKING = "InBodyParserBlocking"
+    NON_BLOCKING = "NonBlocking"
+    NON_BLOCKING_DYNAMIC = "NonBlockingDynamic"
+    POTENTIALLY_BLOCKING = "PotentiallyBlocking"
+
+    def to_json(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_json(cls, json: str) -> RenderBlockingBehavior:
+        return cls(json)
+
+
 @dataclass
 class PostDataEntry:
     '''
@@ -2968,7 +2986,7 @@ def enable(
     :param max_resource_buffer_size: **(EXPERIMENTAL)** *(Optional)* Per-resource buffer size in bytes to use when preserving network payloads (XHRs, etc).
     :param max_post_data_size: *(Optional)* Longest post body size (in bytes) that would be included in requestWillBeSent notification
     :param report_direct_socket_traffic: **(EXPERIMENTAL)** *(Optional)* Whether DirectSocket chunk send/receive events should be reported.
-    :param enable_durable_messages: **(EXPERIMENTAL)** *(Optional)* Enable storing response bodies outside of renderer, so that these survive a cross-process navigation. Requires maxTotalBufferSize to be set. Currently defaults to false.
+    :param enable_durable_messages: **(EXPERIMENTAL)** *(Optional)* Enable storing response bodies outside of renderer, so that these survive a cross-process navigation. Requires maxTotalBufferSize to be set. Currently defaults to false. This field is being deprecated in favor of the dedicated configureDurableMessages command, due to the possibility of deadlocks when awaiting Network.enable before issuing Runtime.runIfWaitingForDebugger.
     '''
     params: T_JSON_DICT = dict()
     if max_total_buffer_size is not None:
@@ -2983,6 +3001,32 @@ def enable(
         params['enableDurableMessages'] = enable_durable_messages
     cmd_dict: T_JSON_DICT = {
         'method': 'Network.enable',
+        'params': params,
+    }
+    json = yield cmd_dict
+
+
+def configure_durable_messages(
+        max_total_buffer_size: typing.Optional[int] = None,
+        max_resource_buffer_size: typing.Optional[int] = None
+    ) -> typing.Generator[T_JSON_DICT,T_JSON_DICT,None]:
+    '''
+    Configures storing response bodies outside of renderer, so that these survive
+    a cross-process navigation.
+    If maxTotalBufferSize is not set, durable messages are disabled.
+
+    **EXPERIMENTAL**
+
+    :param max_total_buffer_size: *(Optional)* Buffer size in bytes to use when preserving network payloads (XHRs, etc).
+    :param max_resource_buffer_size: *(Optional)* Per-resource buffer size in bytes to use when preserving network payloads (XHRs, etc).
+    '''
+    params: T_JSON_DICT = dict()
+    if max_total_buffer_size is not None:
+        params['maxTotalBufferSize'] = max_total_buffer_size
+    if max_resource_buffer_size is not None:
+        params['maxResourceBufferSize'] = max_resource_buffer_size
+    cmd_dict: T_JSON_DICT = {
+        'method': 'Network.configureDurableMessages',
         'params': params,
     }
     json = yield cmd_dict
@@ -3768,6 +3812,8 @@ class RequestWillBeSent:
     frame_id: typing.Optional[page.FrameId]
     #: Whether the request is initiated by a user gesture. Defaults to false.
     has_user_gesture: typing.Optional[bool]
+    #: The render blocking behavior of the request.
+    render_blocking_behavior: typing.Optional[RenderBlockingBehavior]
 
     @classmethod
     def from_json(cls, json: T_JSON_DICT) -> RequestWillBeSent:
@@ -3783,7 +3829,8 @@ class RequestWillBeSent:
             redirect_response=Response.from_json(json['redirectResponse']) if json.get('redirectResponse', None) is not None else None,
             type_=ResourceType.from_json(json['type']) if json.get('type', None) is not None else None,
             frame_id=page.FrameId.from_json(json['frameId']) if json.get('frameId', None) is not None else None,
-            has_user_gesture=bool(json['hasUserGesture']) if json.get('hasUserGesture', None) is not None else None
+            has_user_gesture=bool(json['hasUserGesture']) if json.get('hasUserGesture', None) is not None else None,
+            render_blocking_behavior=RenderBlockingBehavior.from_json(json['renderBlockingBehavior']) if json.get('renderBlockingBehavior', None) is not None else None
         )
 
 

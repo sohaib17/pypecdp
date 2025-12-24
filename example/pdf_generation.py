@@ -17,7 +17,8 @@ from pathlib import Path
 from pypecdp import Browser, cdp
 
 
-async def main():
+async def main() -> None:
+    """Main."""
     temp_dir = tempfile.gettempdir()
     # Launch browser (headless required for PDF)
     browser = await Browser.start(

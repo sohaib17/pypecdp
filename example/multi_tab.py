@@ -10,11 +10,13 @@ Demonstrates managing multiple browser tabs concurrently:
 
 import asyncio
 import os
+from typing import Any
 
 from pypecdp import Browser
 
 
-async def main():
+async def main() -> None:
+    """Main."""
     # Launch browser
     browser = await Browser.start(
         chrome_path=os.environ.get("PYPECDP_CHROME_PATH", "chromium"),
@@ -60,7 +62,7 @@ async def main():
     print("Example 3: Parallel operations across tabs")
     print("=" * 60)
 
-    async def get_h1_text(tab, tab_num):
+    async def get_h1_text(tab: Any, tab_num: int) -> str:
         """Extract h1 text from a tab."""
         h1 = await tab.select("h1")
         if h1:

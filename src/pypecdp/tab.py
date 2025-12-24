@@ -1,13 +1,18 @@
 """Tab/session management and DOM utilities."""
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
-import logging
+from typing import TYPE_CHECKING, Any, Callable
 
 from . import cdp
 from .cdp.page import LoadEventFired
+from .elem import Elem
+from .logger import logger
 
-logger = logging.getLogger("pypecdp")
+if TYPE_CHECKING:
+    from .browser import Browser
 
 
 class Tab:
@@ -25,10 +30,10 @@ class Tab:
 
     def __init__(
         self,
-        browser,
-        target_id,
-        target_info=None,
-    ):
+        browser: Browser,
+        target_id: Any,
+        target_info: Any = None,
+    ) -> None:
         """Initialize a Tab instance.
 
         Args:
@@ -36,15 +41,15 @@ class Tab:
             target_id: CDP target identifier.
             target_info: Optional target metadata.
         """
-        self.browser = browser
-        self.target_id = target_id
-        self.target_info = target_info
-        self.session_id = None
-        self._handlers = {}
+        self.browser: Browser = browser
+        self.target_id: Any = target_id
+        self.target_info: Any = target_info
+        self.session_id: str | None = None
+        self._handlers: dict[type[Any], list[Callable[[Any], Any]]] = {}
 
     async def init(
         self,
-    ):
+    ) -> None:
         """Initialize CDP domains for this tab.
 
         Enables Page, Runtime, DOM, and Log domains.
@@ -56,8 +61,8 @@ class Tab:
 
     async def send(
         self,
-        cmd,
-    ):
+        cmd: Any,
+    ) -> Any:
         """Send a CDP command within this tab's session.
 
         Args:
@@ -75,9 +80,9 @@ class Tab:
 
     def on(
         self,
-        event_name,
-        handler,
-    ):
+        event_name: type[Any],
+        handler: Callable[[Any], Any],
+    ) -> None:
         """Register an event handler for tab-level CDP events.
 
         Args:
@@ -88,14 +93,14 @@ class Tab:
 
     async def handle_event(
         self,
-        event,
-    ):
+        event: Any,
+    ) -> None:
         """Dispatch a CDP event to registered handlers.
 
         Args:
             event: The CDP event object to dispatch.
         """
-        method = type(event)
+        method: type[Any] = type(event)
         for h in self._handlers.get(method, []):
             try:
                 if asyncio.iscoroutinefunction(h) or asyncio.iscoroutine(h):
@@ -105,7 +110,7 @@ class Tab:
             except Exception:
                 logger.exception("Tab handler error for %s", method)
 
-    def clear_handlers(self):
+    def clear_handlers(self) -> None:
         """Clear all registered event handlers for this tab."""
         self._handlers.clear()
 
@@ -113,9 +118,9 @@ class Tab:
 
     async def navigate(
         self,
-        url,
-        timeout=10.0,
-    ):
+        url: str,
+        timeout: float = 10.0,
+    ) -> None:
         """Navigate to a URL and wait for page load.
 
         Args:
@@ -129,9 +134,9 @@ class Tab:
 
     async def wait_for_event(
         self,
-        event=LoadEventFired,
-        timeout=10.0,
-    ):
+        event: type[Any] = LoadEventFired,
+        timeout: float = 10.0,
+    ) -> None:
         """Wait for a specific CDP event to occur.
 
         Args:
@@ -139,13 +144,15 @@ class Tab:
             timeout: Maximum seconds to wait. Timeout errors are
                 suppressed.
         """
-        fut = asyncio.get_running_loop().create_future()
+        fut: asyncio.Future[None] = asyncio.get_running_loop().create_future()
 
-        async def on_loaded(_):
+        async def on_loaded(_: Any) -> None:
             if not fut.done():
                 fut.set_result(None)
             # remove once fired
-            handlers = self._handlers.get(event, [])
+            handlers: list[Callable[[Any], Any]] = self._handlers.get(
+                event, []
+            )
             if on_loaded in handlers:
                 handlers.remove(on_loaded)
 
@@ -155,9 +162,9 @@ class Tab:
 
     async def eval(
         self,
-        expression,
-        await_promise=True,
-    ):
+        expression: str,
+        await_promise: bool = True,
+    ) -> Any:
         """Evaluate JavaScript expression in the page context.
 
         Args:
@@ -179,8 +186,8 @@ class Tab:
 
     async def select(
         self,
-        selector,
-    ):
+        selector: str,
+    ) -> Elem | None:
         """Find the first element matching a CSS selector.
 
         Args:
@@ -203,8 +210,8 @@ class Tab:
 
     async def select_all(
         self,
-        selector,
-    ):
+        selector: str,
+    ) -> list[Elem]:
         """Find all elements matching a CSS selector.
 
         Args:
@@ -222,10 +229,10 @@ class Tab:
 
     async def wait_for_selector(
         self,
-        selector,
-        timeout=10.0,
-        poll=0.05,
-    ):
+        selector: str,
+        timeout: float = 10.0,
+        poll: float = 0.05,
+    ) -> Elem | None:
         """Wait for an element matching a selector to appear.
 
         Args:
@@ -236,9 +243,9 @@ class Tab:
         Returns:
             Elem | None: The matching element, or None if timeout.
         """
-        end = asyncio.get_running_loop().time() + timeout
+        end: float = asyncio.get_running_loop().time() + timeout
         while asyncio.get_running_loop().time() < end:
-            el = await self.select(selector)
+            el: Elem | None = await self.select(selector)
             if el:
                 return el
             await asyncio.sleep(poll)
@@ -246,7 +253,7 @@ class Tab:
 
     async def close(
         self,
-    ):
+    ) -> None:
         """Close this tab.
 
         Sends a close target command. Errors are suppressed if the tab
@@ -259,7 +266,3 @@ class Tab:
         except (RuntimeError, ConnectionError):
             # Tab may already be closed or connection lost
             logger.debug("Could not close tab %s", self.target_id)
-
-
-from .browser import Browser
-from .elem import Elem

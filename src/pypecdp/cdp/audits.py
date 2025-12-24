@@ -969,6 +969,9 @@ class GenericIssueErrorType(enum.Enum):
     FORM_INPUT_HAS_WRONG_BUT_WELL_INTENDED_AUTOCOMPLETE_VALUE_ERROR = "FormInputHasWrongButWellIntendedAutocompleteValueError"
     RESPONSE_WAS_BLOCKED_BY_ORB = "ResponseWasBlockedByORB"
     NAVIGATION_ENTRY_MARKED_SKIPPABLE = "NavigationEntryMarkedSkippable"
+    AUTOFILL_AND_MANUAL_TEXT_POLICY_CONTROLLED_FEATURES_INFO = "AutofillAndManualTextPolicyControlledFeaturesInfo"
+    AUTOFILL_POLICY_CONTROLLED_FEATURE_INFO = "AutofillPolicyControlledFeatureInfo"
+    MANUAL_TEXT_POLICY_CONTROLLED_FEATURE_INFO = "ManualTextPolicyControlledFeatureInfo"
 
     def to_json(self) -> str:
         return self.value

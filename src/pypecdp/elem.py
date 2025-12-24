@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from . import cdp
 from .cdp.dom import NodeId
 from .cdp.input_ import MouseButton
 from .cdp.runtime import CallArgument
+from .logger import logger
 
-logger = logging.getLogger("pypecdp")
+if TYPE_CHECKING:
+    from .tab import Tab
 
 
 @dataclass
@@ -31,7 +33,7 @@ class Elem:
 
     async def _scroll_into_view(
         self,
-    ):
+    ) -> None:
         """Scroll element into viewport and attempt to focus it.
 
         Errors are suppressed if the element is detached or hidden.
@@ -52,7 +54,7 @@ class Elem:
 
     async def _center_point(
         self,
-    ):
+    ) -> tuple[float, float]:
         """Calculate the center coordinates of the element's box model.
 
         Returns:
@@ -60,18 +62,18 @@ class Elem:
         """
         box = await self.tab.send(cdp.dom.get_box_model(node_id=self.node_id))
         quad = box.content or box.border
-        xs = [quad[0], quad[2], quad[4], quad[6]]
-        ys = [quad[1], quad[3], quad[5], quad[7]]
-        x = sum(xs) / 4.0
-        y = sum(ys) / 4.0
+        xs: list[float] = [quad[0], quad[2], quad[4], quad[6]]
+        ys: list[float] = [quad[1], quad[3], quad[5], quad[7]]
+        x: float = sum(xs) / 4.0
+        y: float = sum(ys) / 4.0
         return float(x), float(y)
 
     async def click(
         self,
-        button=MouseButton.LEFT,
-        click_count=1,
-        delay=0.02,
-    ):
+        button: MouseButton = MouseButton.LEFT,
+        click_count: int = 1,
+        delay: float = 0.02,
+    ) -> None:
         """Click the element at its center point.
 
         Scrolls the element into view, calculates the center, and
@@ -106,8 +108,8 @@ class Elem:
 
     async def type(
         self,
-        text,
-    ):
+        text: str,
+    ) -> None:
         """Type text into the element.
 
         Focuses the element and inserts the text via CDP input command.
@@ -120,8 +122,8 @@ class Elem:
 
     async def set_value(
         self,
-        value,
-    ):
+        value: str,
+    ) -> None:
         """Set the value property of the element directly.
 
         Attempts to resolve the element to a RemoteObject and set its
@@ -145,7 +147,7 @@ class Elem:
 
     async def text(
         self,
-    ):
+    ) -> Any:
         """Get the text content of the element.
 
         Returns:
@@ -166,7 +168,7 @@ class Elem:
 
     async def html(
         self,
-    ):
+    ) -> Any:
         """Get the outer HTML of the element.
 
         Returns:
@@ -177,8 +179,8 @@ class Elem:
 
     async def attribute(
         self,
-        name,
-    ):
+        name: str,
+    ) -> str | None:
         """Get the value of an attribute.
 
         Args:
@@ -190,7 +192,7 @@ class Elem:
         attrs = await self.tab.send(
             cdp.dom.get_attributes(node_id=self.node_id)
         )
-        attrs_list = list(attrs)
+        attrs_list: list[str] = list(attrs)
         for i in range(0, len(attrs_list), 2):
             if attrs_list[i] == name:
                 return attrs_list[i + 1]
@@ -198,7 +200,7 @@ class Elem:
 
     async def _resolve_object(
         self,
-    ):
+    ) -> Any:
         """Resolve the DOM node to a CDP RemoteObject.
 
         Returns:
@@ -216,6 +218,3 @@ class Elem:
                 "Could not resolve node %s to RemoteObject", self.node_id
             )
             return None
-
-
-from .tab import Tab

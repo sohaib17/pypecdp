@@ -337,17 +337,23 @@ def create_browser_context(
     return browser.BrowserContextID.from_json(json['browserContextId'])
 
 
-def get_browser_contexts() -> typing.Generator[T_JSON_DICT,T_JSON_DICT,typing.List[browser.BrowserContextID]]:
+def get_browser_contexts() -> typing.Generator[T_JSON_DICT,T_JSON_DICT,typing.Tuple[typing.List[browser.BrowserContextID], typing.Optional[browser.BrowserContextID]]]:
     '''
     Returns all browser contexts created with ``Target.createBrowserContext`` method.
 
-    :returns: An array of browser context ids.
+    :returns: A tuple with the following items:
+
+        0. **browserContextIds** - An array of browser context ids.
+        1. **defaultBrowserContextId** - *(Optional)* The id of the default browser context if available.
     '''
     cmd_dict: T_JSON_DICT = {
         'method': 'Target.getBrowserContexts',
     }
     json = yield cmd_dict
-    return [browser.BrowserContextID.from_json(i) for i in json['browserContextIds']]
+    return (
+        [browser.BrowserContextID.from_json(i) for i in json['browserContextIds']],
+        browser.BrowserContextID.from_json(json['defaultBrowserContextId']) if json.get('defaultBrowserContextId', None) is not None else None
+    )
 
 
 def create_target(

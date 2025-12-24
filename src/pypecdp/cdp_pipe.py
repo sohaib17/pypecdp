@@ -2,17 +2,35 @@
 
 import asyncio
 import contextlib
-import logging
 import os
+from asyncio.subprocess import Process
 
 from .config import Config
+from .logger import logger
 
-logger = logging.getLogger("pypecdp")
+
+class _Writer:
+    """Custom writer for CDP pipe communication."""
+
+    def __init__(self, transport: asyncio.WriteTransport) -> None:
+        self._transport = transport
+
+    def write(self, data: bytes) -> None:
+        """Write data to the transport."""
+        self._transport.write(data)
+
+    async def drain(self) -> None:
+        """Drain the transport (no-op for pipe)."""
+        await asyncio.sleep(0)
+
+    def close(self) -> None:
+        """Close the transport."""
+        self._transport.close()
 
 
 async def launch_chrome_with_pipe(
-    config,
-):
+    config: Config,
+) -> tuple[Process, asyncio.StreamReader, _Writer]:
     """Launch Chrome with pipe-based CDP communication.
 
     Creates bidirectional pipes for Chrome DevTools Protocol
@@ -28,9 +46,9 @@ async def launch_chrome_with_pipe(
             - reader: AsyncIO StreamReader for reading CDP messages.
             - writer: Custom writer object for sending CDP messages.
     """
-    chrome_path = config.chrome_path
-    argv = config.build_argv()
-    env = config.build_env()
+    chrome_path: str = config.chrome_path
+    argv: list[str] = config.build_argv()
+    env: dict[str, str] = config.build_env()
 
     # Parent <-> Child pipes:
     # parent writes (p2c_w) -> child reads on FD 3
@@ -54,7 +72,7 @@ async def launch_chrome_with_pipe(
     logger.info("Launching Chrome at %s with %d args", chrome_path, len(argv))
     logger.debug("Chrome argv: %s", argv)
 
-    proc = await asyncio.create_subprocess_exec(
+    proc: Process = await asyncio.create_subprocess_exec(
         chrome_path,
         *argv,
         stdin=asyncio.subprocess.DEVNULL,
@@ -70,10 +88,12 @@ async def launch_chrome_with_pipe(
     with contextlib.suppress(OSError):
         os.close(c2p_w)
 
-    loop = asyncio.get_running_loop()
+    loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
 
-    reader = asyncio.StreamReader()
-    r_proto = asyncio.StreamReaderProtocol(reader)
+    reader: asyncio.StreamReader = asyncio.StreamReader()
+    r_proto: asyncio.StreamReaderProtocol = asyncio.StreamReaderProtocol(
+        reader
+    )
     await loop.connect_read_pipe(
         lambda: r_proto, os.fdopen(c2p_r, "rb", buffering=0)
     )
@@ -82,17 +102,6 @@ async def launch_chrome_with_pipe(
         asyncio.Protocol, os.fdopen(p2c_w, "wb", buffering=0)
     )
 
-    class _Writer:
-
-        def write(self, data: bytes) -> None:
-            w_transport.write(data)
-
-        async def drain(self) -> None:
-            await asyncio.sleep(0)
-
-        def close(self) -> None:
-            w_transport.close()
-
-    writer = _Writer()
+    writer = _Writer(w_transport)
     logger.info("Chrome launched (pid=%s)", proc.pid)
     return proc, reader, writer
