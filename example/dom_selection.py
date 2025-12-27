@@ -84,7 +84,7 @@ async def main() -> None:
     # Navigate to the test page
 
     encoded = base64.b64encode(html_content.encode()).decode()
-    tab = await browser.get(f"data:text/html;base64,{encoded}")
+    tab = await browser.navigate(f"data:text/html;base64,{encoded}")
 
     print("=" * 60)
     print("Example 1: Single element selection")

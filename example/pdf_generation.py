@@ -28,7 +28,7 @@ async def main() -> None:
     )
 
     # Navigate to a page
-    tab = await browser.get("https://example.com")
+    tab = await browser.navigate("https://example.com")
     print("Page loaded: https://example.com")
 
     # Wait for page to fully render

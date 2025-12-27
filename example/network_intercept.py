@@ -27,7 +27,7 @@ async def main() -> None:
         extra_args=["--no-sandbox"],
     )
 
-    tab = await browser.get("about:blank")
+    tab = await browser.navigate("about:blank")
     print("Browser launched and tab created")
 
     # Enable Fetch domain for request interception

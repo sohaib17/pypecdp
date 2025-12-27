@@ -1,0 +1,70 @@
+name: Publish distribution 📦 to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build distribution 📦
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+    - name: Install pypa/build
+      run: >-
+        python3 -m
+        pip install
+        build
+        --user
+    - name: Build a binary wheel and a source tarball
+      run: python3 -m build
+    - name: Verify package can be imported
+      run: |
+        python3 -m pip install dist/*.whl
+        python3 -c "import pypecdp; print(f'✓ Package version: {pypecdp.__version__}')"
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v5
+      with:
+        name: python-package-distributions
+        path: dist/
+  publish-to-pypi:
+    name: >-
+      Publish distribution 📦 to PyPI
+    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pypecdp
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v6
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Validate version matches tag
+      run: |
+        # Extract version from package filename
+        WHEEL_FILE=$(ls dist/*.whl)
+        PKG_VERSION=$(echo $WHEEL_FILE | sed -n 's/.*pypecdp-\([0-9.]*\)-.*/\1/p')
+        # Extract version from tag (remove 'v' prefix if present)
+        TAG_VERSION=${GITHUB_REF#refs/tags/}
+        TAG_VERSION=${TAG_VERSION#v}
+        echo "Package version: $PKG_VERSION"
+        echo "Tag version: $TAG_VERSION"
+        if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+          echo "❌ Error: Package version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+          exit 1
+        fi
+        echo "✓ Version validation passed"
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

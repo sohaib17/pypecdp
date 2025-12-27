@@ -4,7 +4,7 @@ Fully async Chrome DevTools Protocol over POSIX pipes with a high-level Browser/
 
 Chrome automation using `--remote-debugging-pipe` (no websockets, no ports, just pipes) with bundled CDP protocol classes.
 
-Inspired by playwright-python, python-cdp and nodriver.
+Inspired by [playwright-python](https://github.com/microsoft/playwright-python), [python-cdp](https://github.com/HMaker/python-cdp) and [nodriver](https://github.com/ultrafunkamsterdam/nodriver).
 
 ## Features
 
@@ -48,7 +48,7 @@ async def main():
     )
     
     # Open a tab
-    tab = await browser.get("https://example.com")
+    tab = await browser.navigate("https://example.com")
     
     # Select and interact with elements
     h1 = await tab.select("h1")
@@ -96,7 +96,9 @@ await browser.close()
 ```python
 from pypecdp import cdp
 
-# Tab-level events
+# Tab-level events (requires domain enable!)
+await tab.send(cdp.runtime.enable())  # Required for runtime events!
+
 async def on_console(event):
     print(f"Console {event.type_}: {event.args}")
 
@@ -141,7 +143,7 @@ logger.addHandler(handler)
 ```python
 try:
     browser = await Browser.start()
-    tab = await browser.get("https://example.com")
+    tab = await browser.navigate("https://example.com")
     
     # Your automation code
     result = await tab.eval("document.title")

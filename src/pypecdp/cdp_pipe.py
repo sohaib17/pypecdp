@@ -10,13 +10,26 @@ from .logger import logger
 
 
 class _Writer:
-    """Custom writer for CDP pipe communication."""
+    """Custom writer for CDP pipe communication.
+
+    Attributes:
+        _transport: The underlying asyncio WriteTransport.
+    """
 
     def __init__(self, transport: asyncio.WriteTransport) -> None:
+        """Initialize the writer.
+
+        Args:
+            transport: The asyncio WriteTransport to wrap.
+        """
         self._transport = transport
 
     def write(self, data: bytes) -> None:
-        """Write data to the transport."""
+        """Write data to the transport.
+
+        Args:
+            data: The bytes to write to the transport.
+        """
         self._transport.write(data)
 
     async def drain(self) -> None:
@@ -70,7 +83,6 @@ async def launch_chrome_with_pipe(
                 os.close(c2p_w)
 
     logger.info("Launching Chrome at %s with %d args", chrome_path, len(argv))
-    logger.debug("Chrome argv: %s", argv)
 
     proc: Process = await asyncio.create_subprocess_exec(
         chrome_path,
@@ -105,3 +117,6 @@ async def launch_chrome_with_pipe(
     writer = _Writer(w_transport)
     logger.info("Chrome launched (pid=%s)", proc.pid)
     return proc, reader, writer
+
+
+__all__ = ["launch_chrome_with_pipe"]

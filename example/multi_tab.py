@@ -39,7 +39,7 @@ async def main() -> None:
 
     for i, url in enumerate(urls, 1):
         print(f"Creating tab {i}: {url}")
-        tab = await browser.get(url, new_tab=True)
+        tab = await browser.navigate(url, new_tab=True)
         tabs.append(tab)
         await asyncio.sleep(0.5)  # Small delay for demonstration
 
@@ -76,8 +76,8 @@ async def main() -> None:
         *[get_h1_text(tab, i) for i, tab in enumerate(tabs, 1)]
     )
 
-    for result in results:
-        print(f"  {result}")
+    for el_text in results:
+        print(f"  {el_text}")
 
     # Example 4: Cross-tab coordination
     print("\n" + "=" * 60)
@@ -123,7 +123,7 @@ async def main() -> None:
     print("=" * 60)
 
     print("Opening a new tab dynamically...")
-    _ = await browser.get("https://httpbin.org/html")
+    _ = await browser.navigate("https://httpbin.org/html")
     await asyncio.sleep(0.5)
 
     print(f"Total targets now: {len(browser.targets)}")
@@ -131,7 +131,7 @@ async def main() -> None:
     # List all current target IDs and types
     print("\nAll current targets:")
     for target_id, tab in browser.targets.items():
-        print(f"  {target_id}... -> {tab.target_info.type_}")
+        print(f"  {target_id}... -> {tab}")
 
     # Clean up all tabs
     print("\n" + "=" * 60)

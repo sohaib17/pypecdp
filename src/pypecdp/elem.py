@@ -218,3 +218,18 @@ class Elem:
                 "Could not resolve node %s to RemoteObject", self.node_id
             )
             return None
+
+    # Attributes--------------------------------------------------------------
+
+    def __repr__(
+        self,
+    ) -> str:
+        """Get a string representation of the Elem.
+
+        Returns:
+            str: String representation of the Elem.
+        """
+        return f"<Elem node_id={self.node_id}>"
+
+
+__all__ = ["Elem"]

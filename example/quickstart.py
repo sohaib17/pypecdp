@@ -21,7 +21,7 @@ async def main() -> None:
         headless=True,
         extra_args=["--no-sandbox"],
     )
-    tab = await browser.get("https://example.com")
+    tab = await browser.navigate("https://example.com")
     h1 = await tab.select("h1")
     if h1:
         print("H1:", (await h1.text()).strip())

@@ -101,11 +101,11 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     # Create first tab
-    tab1 = await browser.get("https://example.com", new_tab=True)
+    tab1 = await browser.navigate("https://example.com", new_tab=True)
     await asyncio.sleep(0.5)
 
     # Create second tab
-    _ = await browser.get("https://example.org", new_tab=True)
+    _ = await browser.navigate("https://example.org", new_tab=True)
     await asyncio.sleep(0.5)
 
     # Navigate first tab to a different URL (triggers targetInfoChanged)
@@ -129,7 +129,7 @@ async def main() -> None:
     print("Creating tab3...")
     print("=" * 60 + "\n")
 
-    _ = await browser.get("https://httpbin.org/html", new_tab=True)
+    _ = await browser.navigate("https://httpbin.org/html", new_tab=True)
     await asyncio.sleep(0.5)
 
     # Example with multiple event handlers on same event
@@ -145,7 +145,7 @@ async def main() -> None:
     browser.on(cdp.target.TargetCreated, second_target_created_handler)
 
     # Create another tab - both handlers will fire
-    _ = await browser.get("about:blank", new_tab=True)
+    _ = await browser.navigate("about:blank", new_tab=True)
     await asyncio.sleep(0.5)
 
     # Summary

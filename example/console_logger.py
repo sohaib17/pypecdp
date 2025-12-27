@@ -24,7 +24,8 @@ async def main() -> None:
         extra_args=["--no-sandbox"],
     )
 
-    tab = await browser.get("about:blank")
+    tab = await browser.navigate("about:blank")
+    await tab.send(cdp.runtime.enable())
     print("Browser launched\n")
 
     # Storage for console messages

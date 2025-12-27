@@ -101,3 +101,6 @@ class Config:
         env.update(self.env)
         logger.debug("Built child env overrides: %s", self.env)
         return env
+
+
+__all__ = ["Config"]

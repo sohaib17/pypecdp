@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pypecdp"
-version = "0.2.0"
+version = "0.3.0"
 description = "Async Chrome DevTools Protocol over POSIX pipes."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,7 +24,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-dependencies = []
+dependencies = [
+  "deprecated>=1.2.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/sohaib17/pypecdp"

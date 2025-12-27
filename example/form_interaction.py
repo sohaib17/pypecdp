@@ -23,7 +23,7 @@ async def main() -> None:
     )
 
     # Navigate to httpbin form demo
-    tab = await browser.get("https://httpbin.org/forms/post")
+    tab = await browser.navigate("https://httpbin.org/forms/post")
 
     print("Filling out form...")
 
