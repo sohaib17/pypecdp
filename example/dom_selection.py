@@ -1,9 +1,9 @@
 """Example: Advanced DOM selection and element manipulation.
 
 Demonstrates various DOM query and manipulation techniques:
-- Tab.select() for single element selection with CSS selectors
-- Tab.select_all() for multiple element selection
-- Tab.wait_for_selector() for dynamic content that appears after page load
+- Tab.find_elem() for single element selection with CSS selectors
+- Tab.find_elems() for multiple element selection
+- Tab.wait_for_elem() for dynamic content that appears after page load
 - Element attribute extraction using Elem.attribute()
 - Element text content retrieval using Elem.text()
 - Element HTML serialization using Elem.html()
@@ -91,7 +91,7 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     # Select single element by ID
-    title = await tab.select("#main-title")
+    title = await tab.wait_for_elem("#main-title")
     if title:
         text = await title.text()
         print(f"Title text: {text.strip()}")
@@ -109,7 +109,7 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     # Select all items
-    items = await tab.select_all(".item")
+    items = await tab.find_elems(".item")
     print(f"Found {len(items)} items\n")
 
     # Process each item using direct selectors to avoid node ID invalidation
@@ -117,17 +117,17 @@ async def main() -> None:
         print(f"Item {i} (data-id={i}):")
 
         # Use specific selectors for each item
-        h2 = await tab.select(f'.item[data-id="{i}"] h2')
+        h2 = await tab.find_elem(f'.item[data-id="{i}"] h2')
         if h2:
             h2_text = await h2.text()
             print(f"  Heading: {h2_text.strip()}")
 
-        desc = await tab.select(f'.item[data-id="{i}"] .description')
+        desc = await tab.find_elem(f'.item[data-id="{i}"] .description')
         if desc:
             desc_text = await desc.text()
             print(f"  Description: {desc_text.strip()}")
 
-        link = await tab.select(f'.item[data-id="{i}"] .link')
+        link = await tab.find_elem(f'.item[data-id="{i}"] .link')
         if link:
             href = await link.attribute("href")
             link_text = await link.text()
@@ -140,7 +140,7 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     # Select all features and extract data immediately
-    features = await tab.select_all(".feature")
+    features = await tab.find_elems(".feature")
     print(f"Found {len(features)} features:")
 
     # Get all data from elements immediately before node IDs become stale
@@ -163,7 +163,7 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     print("Waiting for #async-content to appear...")
-    async_elem = await tab.wait_for_selector("#async-content", timeout=3.0)
+    async_elem = await tab.wait_for_elem("#async-content", timeout=3.0)
 
     if async_elem:
         print("Element appeared!")
@@ -177,20 +177,20 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     # Select highlighted feature specifically
-    highlighted = await tab.select(".feature.highlight")
+    highlighted = await tab.find_elem(".feature.highlight")
     if highlighted:
         text = await highlighted.text()
         print(f"Highlighted feature: {text.strip()}")
 
     # Select all links within items
-    all_links = await tab.select_all(".item .link")
+    all_links = await tab.find_elems(".item .link")
     print(f"\nFound {len(all_links)} links in items:")
     for link in all_links:
         href = await link.attribute("href")
         print(f"  {href}")
 
     # Select first item's description specifically
-    first_desc = await tab.select(".item:first-child .description")
+    first_desc = await tab.find_elem(".item:first-child .description")
     if first_desc:
         text = await first_desc.text()
         print(f"\nFirst item description: {text.strip()}")
@@ -200,7 +200,7 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     # Get all links and their attributes
-    links = await tab.select_all("a.link")
+    links = await tab.find_elems("a.link")
     print("All links with attributes:")
 
     # Extract all data immediately to avoid node ID invalidation
@@ -223,12 +223,12 @@ async def main() -> None:
     print("=" * 60 + "\n")
 
     # Try to select something that doesn't exist
-    nonexistent = await tab.select(".does-not-exist")
+    nonexistent = await tab.find_elem(".does-not-exist")
     print(f"Non-existent selector result: {nonexistent}")
 
     # Try to wait for something that won't appear
     print("Waiting for non-existent element (0.5s timeout)...")
-    result = await tab.wait_for_selector(".never-appears", timeout=0.5)
+    result = await tab.wait_for_elem(".never-appears", timeout=0.5)
     print(f"Result: {result}")
 
     # Clean up

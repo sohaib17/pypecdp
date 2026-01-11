@@ -7,7 +7,6 @@ import contextlib
 from typing import TYPE_CHECKING, Any, Callable
 
 from . import cdp
-from .cdp.page import LoadEventFired
 from .elem import Elem
 from .logger import logger
 
@@ -45,33 +44,14 @@ class Tab:
         self.target_id: cdp.target.TargetID = target_id
         self.target_info: cdp.target.TargetInfo | None = target_info
         self.session_id: cdp.target.SessionID | None = None
+        self.doc: cdp.dom.Node | None = None
         self._handlers: dict[type[Any], list[Callable[[Any], Any]]] = {}
         self._frameid: cdp.page.FrameId | None = None
-
-    async def init(
-        self,
-        cmd_array: list[Any] | None = None,
-    ) -> None:
-        """Initialize CDP domains for this tab.
-
-        Enables Page and DOM domains by default.
-
-        Args:
-            cmd_array: Optional list of CDP command generators to send
-                for initialization. If None, defaults to enabling
-                Page and DOM domains.
-        """
-        if cmd_array is None:
-            cmd_array = [
-                cdp.page.enable(),
-                cdp.dom.enable(),
-            ]
-        for cmd in cmd_array:
-            await self.send(cmd)
 
     async def send(
         self,
         cmd: Any,
+        **kwargs: Any,
     ) -> Any:
         """Send a CDP command within this tab's session.
 
@@ -86,7 +66,11 @@ class Tab:
         """
         if not self.session_id:
             raise RuntimeError(f"Tab {self.target_id} not attached")
-        return await self.browser.send(cmd, session_id=self.session_id)
+        return await self.browser.send(
+            cmd,
+            session_id=self.session_id,
+            **kwargs,
+        )
 
     def on(
         self,
@@ -128,14 +112,19 @@ class Tab:
 
     async def attach(
         self,
-    ) -> cdp.target.SessionID | None:
+    ) -> cdp.target.SessionID:
         """Attach a CDP session to this tab.
 
+        This method is used for manual tab attachment when auto_attach
+        is disabled in the Browser configuration. If auto_attach is enabled
+        (default), tabs are attached automatically by the Browser.
+
         Returns:
-            SessionID | None: The session ID for this tab, or None if already attached.
+            SessionID: The session ID for this tab after attachment.
+                If already attached, returns the existing session ID.
 
         Raises:
-            RuntimeError: If attaching to the target fails.
+            RuntimeError: If the CDP attach_to_target command fails.
         """
         if not self.session_id:
             # Attach to target and get session ID
@@ -161,13 +150,20 @@ class Tab:
             timeout: Maximum seconds to wait for load event. Set to 0
                 to skip waiting.
         """
-        self._frameid, *_ = await self.send(cdp.page.navigate(url=url))
+        self._frameid, *_ = await self.send(
+            cdp.page.navigate(
+                url=url,
+            ),
+        )
         if timeout > 0:
-            await self.wait_for_event(event=LoadEventFired, timeout=timeout)
+            await self.wait_for_event(
+                event=cdp.page.LoadEventFired,
+                timeout=timeout,
+            )
 
     async def wait_for_event(
         self,
-        event: type[Any] = LoadEventFired,
+        event: type[Any] = cdp.page.LoadEventFired,
         timeout: float = 10.0,
     ) -> None:
         """Wait for a specific CDP event to occur.
@@ -219,84 +215,136 @@ class Tab:
 
     # DOM selection ----------------------------------------------------------
 
-    async def select(
+    async def find_elems(
         self,
-        selector: str,
-        depth: int = 1,
-        pierce: bool = False,
-    ) -> Elem | None:
-        """Find the first element matching a CSS selector.
-
-        Args:
-            selector: CSS selector string.
-            depth: Depth to retrieve the document node.
-            pierce: Whether to pierce shadow DOM boundaries.
-
-        Returns:
-            Elem | None: The matching element, or None if not found.
-        """
-        root = await self.send(cdp.dom.get_document(depth, pierce))
-        node_id = root.node_id
-        result_node_id = await self.send(
-            cdp.dom.query_selector(node_id=node_id, selector=selector)
-        )
-        # NodeId(0) means no match found
-        return (
-            Elem(self, result_node_id)
-            if result_node_id and int(result_node_id) != 0
-            else None
-        )
-
-    async def select_all(
-        self,
-        selector: str,
-        depth: int = 1,
-        pierce: bool = False,
+        query: str,
+        depth: int = 100,
+        pierce: bool = True,
     ) -> list[Elem]:
-        """Find all elements matching a CSS selector.
+        """Find all elements matching the specified query.
+
+        Searches from the document root and includes iframes. To search
+        within a specific element, use `Elem.query_selector()`.
 
         Args:
-            selector: CSS selector string.
-            depth: Depth to retrieve the document node.
+            query: Plain text, CSS selector, or XPath search query.
+            depth: Max depth to retrieve the document node.
             pierce: Whether to pierce shadow DOM boundaries.
 
         Returns:
-            list[Elem]: List of matching elements (may be empty).
+            list[Elem]: List of matching elements, empty if nothing found.
         """
-        root = await self.send(cdp.dom.get_document(depth, pierce))
-        node_id = root.node_id
-        node_ids = await self.send(
-            cdp.dom.query_selector_all(node_id=node_id, selector=selector)
+        elems = []
+        self.doc = await self.send(
+            cdp.dom.get_document(
+                depth,
+                pierce,
+            )
         )
-        return [Elem(self, nid) for nid in node_ids]
+        search_id, count = await self.send(
+            cdp.dom.perform_search(
+                query=query,
+                include_user_agent_shadow_dom=True,
+            )
+        )
+        if count:
+            found_nodes: list[cdp.dom.NodeId] = await self.send(
+                cdp.dom.get_search_results(
+                    search_id=search_id,
+                    from_index=0,
+                    to_index=count,
+                )
+            )
+            await self.send(
+                cdp.dom.discard_search_results(
+                    search_id,
+                ),
+            )
+            for node_id in found_nodes:
+                elems.append(self.elem(node_id))
+        # Search in iframes
+        frames = self._frame_nodes(self.doc)
+        for frame in frames:
+            frame_elems = await frame.find_elems(
+                query=query,
+                depth=depth,
+                pierce=pierce,
+            )
+            elems.extend(frame_elems)
+        return elems
 
-    async def wait_for_selector(
+    async def wait_for_elems(
         self,
-        selector: str,
+        query: str,
         timeout: float = 10.0,
-        poll: float = 0.05,
+        **kwargs: Any,
+    ) -> list[Elem]:
+        """Wait for elements matching the specified query to appear.
+
+        Args:
+            query: Plain text, CSS selector, or XPath search query.
+            timeout: Maximum seconds to wait.
+            **kwargs: Additional arguments for `find_elems` method
+                (e.g., depth, pierce, poll).
+
+        Returns:
+            list[Elem]: List of matching elements, empty if timeout.
+        """
+        poll: float = kwargs.get("poll", 0.5)
+        depth: int = kwargs.get("depth", 100)
+        pierce: bool = kwargs.get("pierce", True)
+        end: float = asyncio.get_running_loop().time() + timeout
+        while asyncio.get_running_loop().time() < end:
+            elems: list[Elem] = await self.find_elems(query, depth, pierce)
+            if elems:
+                return elems
+            await asyncio.sleep(poll)
+        return []
+
+    async def find_elem(
+        self,
+        query: str,
+        depth: int = 100,
+        pierce: bool = True,
+    ) -> Elem | None:
+        """Find the first element matching the specified query.
+
+        Searches from the document root and includes iframes. To search
+        within a specific element, use `Elem.query_selector()`.
+
+        Args:
+            query: Plain text, CSS selector, or XPath search query.
+            depth: Max depth to retrieve the document node.
+            pierce: Whether to pierce shadow DOM boundaries.
+
+        Returns:
+            Elem | None: The first matching element, or None if not found.
+        """
+        elems = await self.find_elems(query, depth, pierce)
+        if elems:
+            return elems[0]
+        return None
+
+    async def wait_for_elem(
+        self,
+        query: str,
+        timeout: float = 10.0,
         **kwargs: Any,
     ) -> Elem | None:
-        """Wait for an element matching a selector to appear.
+        """Wait for an element matching the specified query to appear.
 
         Args:
-            selector: CSS selector string.
+            query: Plain text, CSS selector, or XPath search query.
             timeout: Maximum seconds to wait.
-            poll: Polling interval in seconds.
-            **kwargs: Additional arguments for `select` method
-                (e.g., depth, pierce).
+            **kwargs: Additional arguments for `find_elem` method
+                (e.g., depth, pierce, poll).
 
         Returns:
             Elem | None: The matching element, or None if timeout.
         """
-        depth: int = kwargs.get("depth", 1)
-        pierce: bool = kwargs.get("pierce", False)
-        end: float = asyncio.get_running_loop().time() + timeout
-        while asyncio.get_running_loop().time() < end:
-            el: Elem | None = await self.select(selector, depth, pierce)
-            if el:
-                return el
-            await asyncio.sleep(poll)
+        elems = await self.wait_for_elems(query, timeout, **kwargs)
+        if elems:
+            return elems[0]
         return None
 
     async def close(
@@ -309,13 +357,108 @@ class Tab:
         """
         try:
             await self.browser.send(
-                cdp.target.close_target(target_id=self.target_id)
+                cdp.target.close_target(
+                    target_id=self.target_id,
+                )
             )
         except (RuntimeError, ConnectionError):
             # Tab may already be closed or connection lost
             logger.debug("Could not close tab %s", self.target_id)
 
     # Attributes--------------------------------------------------------------
+
+    def elem(
+        self,
+        node_id: cdp.dom.NodeId,
+    ) -> Elem:
+        """Create an Elem instance from a CDP NodeId.
+
+        Searches the document tree for the node with the specified ID
+        and wraps it in an Elem instance for interaction.
+
+        Args:
+            node_id: The NodeId of the DOM element to find.
+
+        Returns:
+            Elem: The created Elem instance wrapping the found node.
+
+        Raises:
+            ValueError: If the tab document is not loaded or if the node
+                with the specified ID is not found.
+        """
+
+        def _filter(
+            nid: cdp.dom.NodeId,
+            root: cdp.dom.Node,
+        ) -> Elem | None:
+            if root.node_id == nid:
+                return Elem(tab=self, node=root)
+            node_children = root.children or []
+            shadow_roots = root.shadow_roots or []
+            children = node_children + shadow_roots
+            for child in children:
+                if child.node_id == nid:
+                    return Elem(tab=self, node=child)
+                if child.content_document:
+                    elem = _filter(nid, child.content_document)
+                else:
+                    elem = _filter(nid, child)
+                if elem:
+                    return elem
+            return None
+
+        if self.doc is None:
+            raise ValueError("Tab document not loaded")
+        elem = _filter(node_id, self.doc)
+        if elem:
+            return elem
+        raise ValueError(f"Node with id {node_id} not found in root")
+
+    def _frame_nodes(
+        self,
+        node: cdp.dom.Node,
+    ) -> list[Tab]:
+        """Recursively find all iframe nodes and their corresponding Tab instances.
+
+        Searches through the DOM tree for IFRAME elements and returns
+        the associated Tab instances for each frame.
+
+        Args:
+            node: The DOM node to search within.
+
+        Returns:
+            list[Tab]: List of Tab instances for iframe elements found.
+        """
+
+        def _get_target(
+            frame_id: cdp.page.FrameId,
+        ) -> Tab | None:
+            return next(
+                (
+                    self.browser.targets[t]
+                    for t in self.browser.targets
+                    if str(t) == str(frame_id)
+                ),
+                None,
+            )
+
+        out = []
+        node_children = node.children or []
+        shadow_roots = node.shadow_roots or []
+        children = node_children + shadow_roots
+        for child in children:
+            if child.node_name == "IFRAME":
+                if child.frame_id:
+                    tab = _get_target(child.frame_id)
+                    if tab:
+                        out.append(tab)
+                    else:
+                        logger.debug(
+                            "Could not find target for frame id %s",
+                            child.frame_id,
+                        )
+            out.extend(self._frame_nodes(child))
+        return out
 
     def __repr__(
         self,

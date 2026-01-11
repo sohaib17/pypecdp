@@ -22,10 +22,17 @@ async def main() -> None:
         extra_args=["--no-sandbox"],
     )
     tab = await browser.navigate("https://example.com")
-    h1 = await tab.select("h1")
+    h1 = await tab.wait_for_elem("h1")
     if h1:
-        print("H1:", (await h1.text()).strip())
+        print("H1:", (await h1.html()).strip())
+        parent = h1.parent
+        if parent:
+            print("H1 Parent:", (await parent.html()).strip())
         await h1.click()
+    href = await tab.wait_for_elem('a[href*="example"]')
+    if href:
+        print("Text:", (await href.text()).strip())
+        print("Link:", await href.attribute("href"))
     await tab.eval("console.log('hello from pypecdp')")
     await asyncio.sleep(0.5)
     await browser.close()

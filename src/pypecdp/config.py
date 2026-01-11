@@ -20,7 +20,7 @@ class Config:
             temporary directory will be created.
         headless: Whether to run in headless mode.
         extra_args: Additional command-line arguments to pass.
-        switches: Dictionary of Chrome switches to enable.
+        ignore_default_args: List of default args to ignore.
         env: Environment variables to set for the browser process.
     """
 
@@ -28,7 +28,7 @@ class Config:
     user_data_dir: str | None = None
     headless: bool = True
     extra_args: list[str] = field(default_factory=list)
-    switches: dict[str, str | None] = field(default_factory=dict)
+    ignore_default_args: list[str] | None = None
     env: dict[str, str] = field(default_factory=dict)
 
     def ensure_user_data_dir(
@@ -55,7 +55,8 @@ class Config:
         """Build command-line arguments for Chrome launch.
 
         Constructs the full argument list including headless mode,
-        pipe debugging, user data directory, switches, and extra args.
+        pipe debugging, user data directory, and extra args.
+        Filters out arguments specified in ignore_default_args.
 
         Returns:
             list[str]: Complete list of command-line arguments.
@@ -63,25 +64,37 @@ class Config:
         argv: list[str] = []
         if self.headless and "--headless=new" not in self.extra_args:
             argv.append("--headless=new")
-
         argv.append("--remote-debugging-pipe")
         argv.append(f"--user-data-dir={self.ensure_user_data_dir()}")
-        argv.extend(
-            [
-                "--no-first-run",
-                "--no-default-browser-check",
-                "--use-gl=angle",
-                "--use-angle=swiftshader",
-                "--disable-gpu",
-            ]
-        )
-
-        for k, v in self.switches.items():
-            if v is None:
-                argv.append(f"--{k}")
-            else:
-                argv.append(f"--{k}={v}")
-
+        # Define default arguments
+        default_args = [
+            "--accept-lang=en-US",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--use-gl=angle",
+            "--use-angle=swiftshader",
+            "--disable-gpu",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-features=IsolateOrigins,site-per-process",
+        ]
+        # Filter out ignored default args
+        if self.ignore_default_args:
+            filtered_args = []
+            for arg in default_args:
+                # Check if the arg (or its base without value) should be ignored
+                arg_base = arg.split("=", maxsplit=1)[0]
+                should_ignore = False
+                for ignore_arg in self.ignore_default_args:
+                    # Support both "arg-name" and "--arg-name" formats
+                    if arg_base in (ignore_arg, f"--{ignore_arg}"):
+                        should_ignore = True
+                        break
+                if not should_ignore:
+                    filtered_args.append(arg)
+            argv.extend(filtered_args)
+        else:
+            argv.extend(default_args)
+        # Append extra user args
         argv.extend(self.extra_args)
         argv.append("about:blank")
         logger.debug("Built Chrome argv: %s", argv)

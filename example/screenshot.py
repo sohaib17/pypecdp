@@ -75,10 +75,12 @@ async def main() -> None:
     print("\n3. Capturing element screenshot...")
 
     # Find h1 element
-    h1 = await tab.select("h1")
+    h1 = await tab.find_elem("h1")
     if h1:
         # Get element's bounding box
-        box_model = await tab.send(cdp.dom.get_box_model(node_id=h1.node_id))
+        box_model = await tab.send(
+            cdp.dom.get_box_model(backend_node_id=h1.backend_node_id)
+        )
         content = box_model.content  # content quad
 
         # Calculate viewport clip (x, y, width, height)

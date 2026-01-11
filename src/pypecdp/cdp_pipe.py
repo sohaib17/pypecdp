@@ -102,7 +102,7 @@ async def launch_chrome_with_pipe(
 
     loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
 
-    reader: asyncio.StreamReader = asyncio.StreamReader()
+    reader: asyncio.StreamReader = asyncio.StreamReader(limit=2**30)
     r_proto: asyncio.StreamReaderProtocol = asyncio.StreamReaderProtocol(
         reader
     )

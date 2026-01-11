@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pypecdp"
-version = "0.3.0"
+version = "0.4.0"
 description = "Async Chrome DevTools Protocol over POSIX pipes."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -28,6 +28,20 @@ dependencies = [
   "deprecated>=1.2.0",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest>=7.4.0",
+  "pytest-asyncio>=0.21.0",
+  "pytest-cov>=4.1.0",
+]
+dev = [
+  "pytest>=7.4.0",
+  "pytest-asyncio>=0.21.0",
+  "pytest-cov>=4.1.0",
+  "mypy>=1.5.0",
+  "ruff>=0.1.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/sohaib17/pypecdp"
 Source = "https://github.com/sohaib17/pypecdp"
@@ -35,6 +49,43 @@ Issues = "https://github.com/sohaib17/pypecdp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pypecdp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "-ra",
+  "--cov=pypecdp",
+  "--cov-report=term-missing",
+  "--cov-report=html",
+]
+markers = [
+  "asyncio: mark test as async",
+]
+
+[tool.coverage.run]
+source = ["pypecdp"]
+omit = [
+  "*/pypecdp/cdp/*",
+  "*/tests/*",
+  "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "@abstractmethod",
+]
 
 [tool.isort]
 profile = "black"
@@ -49,5 +100,5 @@ python_version = "3.12"
 strict = true
 follow_imports = "silent"
 show_column_numbers = true
-exclude = "src/pypecdp/cdp/"
+exclude = ["src/pypecdp/cdp/", "tests/"]
 disable_error_code = ["attr-defined", "import-untyped"]

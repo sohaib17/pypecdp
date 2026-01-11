@@ -10,9 +10,9 @@ Inspired by [playwright-python](https://github.com/microsoft/playwright-python),
 
 - **Fully Async**: Built from ground up with asyncio for concurrent operations
 - **Fast**: Direct pipe communication via file descriptors - no websockets, no network overhead
-- **Zero dependencies**: No external dependencies required - built-in Python libraries only
+- **Minimal dependencies**: Only one dependency (`deprecated`) - lightweight and easy to install
 - **Secure**: Browser only communicates over local pipes, no open ports accessible to other processes
-- **No zombies**: No risk of orphaned Chrome processes - automatic lifecycle management
+- **No zombies**: No risk of orphaned Chrome processes if code crashes - automatic lifecycle management
 - **Linux focused**: Leverages POSIX pipes and process management
 
 ## Install
@@ -47,11 +47,11 @@ async def main():
         headless=True
     )
     
-    # Open a tab
+    # Navigate to a URL (creates/reuses a tab)
     tab = await browser.navigate("https://example.com")
     
     # Select and interact with elements
-    h1 = await tab.select("h1")
+    h1 = await tab.wait_for_elem("h1")
     if h1:
         text = await h1.text()
         print(f"Page heading: {text}")
@@ -82,7 +82,6 @@ config = Config(
     user_data_dir="/tmp/chrome-profile",
     headless=True,
     extra_args=["--no-sandbox", "--disable-gpu"],
-    switches={"disable-blink-features": "AutomationControlled"},
     env={"LANG": "en_US.UTF-8"}
 )
 browser = await Browser.start(config=config)
@@ -118,7 +117,7 @@ pypecdp uses Python's standard logging module. Configure via environment variabl
 
 ```bash
 # Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-export PYPECDP_LOG_LEVEL=DEBUG
+export PYPECDP_LOGLEVEL=DEBUG
 
 # Set custom logger name
 export PYPECDP_LOGGER=myapp.browser
@@ -146,8 +145,15 @@ try:
     tab = await browser.navigate("https://example.com")
     
     # Your automation code
+    elem = await tab.wait_for_elem("button")
+    if elem:
+        await elem.click()
+    
     result = await tab.eval("document.title")
     
+except ReferenceError as e:
+    # Element's tab is no longer available (closed/detached)
+    print(f"Target Error: {e}")
 except RuntimeError as e:
     # CDP protocol errors
     print(f"CDP Error: {e}")

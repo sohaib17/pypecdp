@@ -1,7 +1,7 @@
 """Example: Form interaction and login simulation with element manipulation.
 
 Demonstrates form automation techniques:
-- Tab.select() for finding form input elements
+- Tab.find_elem() for finding form input elements
 - Elem.set_value() for filling input fields directly
 - Elem.click() for clicking buttons and radio/checkboxes
 - Elem.type() for keyboard input simulation that mimics typing
@@ -28,26 +28,26 @@ async def main() -> None:
     print("Filling out form...")
 
     # Fill customer name field
-    name_field = await tab.select('input[name="custname"]')
+    name_field = await tab.find_elem('input[name="custname"]')
     if name_field:
         await name_field.set_value("John Doe")
         print("Name field filled")
 
     # Fill telephone field
-    tel_field = await tab.select('input[name="custtel"]')
+    tel_field = await tab.find_elem('input[name="custtel"]')
     if tel_field:
         await tel_field.set_value("555-1234")
         print("Telephone field filled")
 
     # Fill email field using type() method
-    email_field = await tab.select('input[name="custemail"]')
+    email_field = await tab.find_elem('input[name="custemail"]')
     if email_field:
         await email_field.click()  # Focus the field first
         await email_field.type("john.doe@example.com")
         print("Email field typed")
 
     # Select pizza size (medium)
-    medium_radio = await tab.select('input[value="medium"]')
+    medium_radio = await tab.find_elem('input[value="medium"]')
     if medium_radio:
         await medium_radio.click()
         print("Pizza size selected")
@@ -55,26 +55,26 @@ async def main() -> None:
     # Select toppings using checkboxes
     toppings = ["bacon", "cheese"]
     for topping in toppings:
-        checkbox = await tab.select(f'input[value="{topping}"]')
+        checkbox = await tab.find_elem(f'input[value="{topping}"]')
         if checkbox:
             await checkbox.click()
             print(f"{topping.capitalize()} topping selected")
 
     # Fill delivery time
-    time_field = await tab.select('input[name="delivery"]')
+    time_field = await tab.find_elem('input[name="delivery"]')
     if time_field:
         await time_field.set_value("12:30")
         print("Delivery time set")
 
     # Fill comments textarea
-    comments = await tab.select('textarea[name="comments"]')
+    comments = await tab.find_elem('textarea[name="comments"]')
     if comments:
         await comments.set_value("Please ring the doorbell twice!")
         print("Comments added")
 
     print("\nForm filled successfully!")
     print("In real automation, you would now submit the form with:")
-    print("  submit_btn = await tab.select('button[type=\"submit\"]')")
+    print("  submit_btn = await tab.find_elem('button[type=\"submit\"]')")
     print("  await submit_btn.click()")
 
     # Wait a moment to see the filled form

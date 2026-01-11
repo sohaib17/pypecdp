@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import time
+from types import ModuleType
 from typing import Any, Callable
 
 # Local CDP modules
@@ -39,7 +40,7 @@ class Browser:
         user_data_dir: str | None = None,
         headless: bool = True,
         extra_args: list[str] | None = None,
-        switches: dict[str, str | None] | None = None,
+        ignore_default_args: list[str] | None = None,
         env: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> None:
@@ -53,17 +54,18 @@ class Browser:
                 temporary directory will be created.
             headless: Whether to run in headless mode.
             extra_args: Additional command-line arguments.
-            switches: Dictionary of Chrome switches to add.
+            ignore_default_args: List of default args to ignore.
             env: Environment variables to set for browser process.
             **kwargs: Additional keyword arguments. Currently supports
                 'auto_attach' to control automatic target attachment.
+                'default_domains' to auto-enable CDP domains on a target.
         """
         self.config: Config = config or Config(
             chrome_path=chrome_path,
             user_data_dir=user_data_dir,
             headless=headless,
             extra_args=list(extra_args or []),
-            switches=dict(switches or {}),
+            ignore_default_args=ignore_default_args,
             env=dict(env or {}),
         )
         self.proc: asyncio.subprocess.Process | None = None
@@ -75,8 +77,15 @@ class Browser:
         self._recv_task: asyncio.Task[None] | None = None
         self._session_to_tab: dict[SessionID, Tab] = {}
         self._handlers: dict[type[Any], list[Callable[[Any], Any]]] = {}
-        self._auto_attach: bool = kwargs.get("auto_attach", True)
         self._cursor: float = time.perf_counter()
+        self._auto_attach: bool = kwargs.get("auto_attach", True)
+        self._default_domains: list[ModuleType] = kwargs.get(
+            "default_domains",
+            [
+                cdp.page,
+                cdp.dom,
+            ],
+        )
 
     # Lifecycle --------------------------------------------------------------
 
@@ -118,14 +127,6 @@ class Browser:
                 discover=True,
             ),
         )
-        if self._auto_attach:
-            await self.send(
-                cdp.target.set_auto_attach(
-                    auto_attach=True,
-                    wait_for_debugger_on_start=False,
-                    flatten=True,
-                )
-            )
         await self
 
     async def close(
@@ -134,7 +135,14 @@ class Browser:
         """Close the browser and clean up resources.
 
         Closes all tabs, terminates the browser process, and cancels
-        background tasks.
+        background tasks. This method handles cleanup gracefully:
+        - Attempts graceful shutdown via CDP browser.close()
+        - Falls back to SIGTERM if needed
+        - Falls back to SIGKILL if process doesn't exit in 3 seconds
+
+        Note:
+            This method suppresses most errors to ensure cleanup completes
+            even if the browser has already exited or crashed.
         """
         logger.info("Closing browser %s", self)
         try:
@@ -200,21 +208,28 @@ class Browser:
         self,
         cmd: Any,
         *,
-        session_id: str | None = None,
+        session_id: SessionID | None = None,
+        **kwargs: Any,
     ) -> Any:
         """Send a CDP command and await its response.
 
         Args:
             cmd: CDP command generator to send.
             session_id: Optional session ID for tab-specific commands.
+            **kwargs: Optional keyword arguments:
+                - ignore_errors (bool): If True, suppress CDP errors and
+                  return None instead of raising RuntimeError.
 
         Returns:
-            The parsed response from the CDP command.
+            The parsed response from the CDP command, or None if
+            ignore_errors=True and an error occurred.
 
         Raises:
-            RuntimeError: If the CDP command returns an error.
+            RuntimeError: If the CDP command returns an error and
+                ignore_errors is False (default).
             ConnectionError: If the CDP pipe is closed.
         """
+        ignore_errors = kwargs.get("ignore_errors", False)
         method, *params = next(cmd).values()
         payload: dict[str, Any] = params.pop() if params else {}
         self._msg_id += 1
@@ -240,6 +255,9 @@ class Browser:
         resp: dict[str, Any] = await fut
         if "error" in resp:
             err = resp["error"]
+            if ignore_errors:
+                logger.debug("Ignoring CDP error: %s", err)
+                return None
             raise RuntimeError(f"CDP error {err})")
 
         # Send the result to the generator to get the parsed response
@@ -329,31 +347,56 @@ class Browser:
         method: type[Any] = type(event)
         if method == cdp.target.TargetCreated:
             # event is a TargetCreated object with target_info attribute
+            logger.debug("Target created: %s", event)
             info = event.target_info
             tid = info.target_id
             typ: str = info.type_
-            if tid and typ in {"page", "worker", "service_worker"}:
+            if tid and typ in {
+                "page",
+                "iframe",
+                "worker",
+                "shared_worker",
+                "service_worker",
+            }:
                 self.targets.setdefault(tid, Tab(self, tid, info))
+                if self._auto_attach:
+                    asyncio.ensure_future(
+                        self.send(
+                            cdp.target.attach_to_target(
+                                target_id=tid,
+                                flatten=True,
+                            ),
+                            ignore_errors=True,
+                        )
+                    )
 
         elif method == cdp.target.TargetDestroyed:
             # event is a TargetDestroyed object with target_id attribute
+            logger.debug("Target destroyed: %s", event)
             tid = event.target_id
             if tid:
                 tab: Tab | None = self.targets.pop(tid, None)
                 if tab and tab.session_id:
                     self._session_to_tab.pop(tab.session_id, None)
+                    tab.session_id = None
 
         elif method == cdp.target.AttachedToTarget:
             # event is an AttachedToTarget object with session_id and target_info attributes
+            logger.debug("Attached to target: %s", event)
             sid = event.session_id
-            tid = event.target_info.target_id
+            info = event.target_info
+            tid = info.target_id
             if sid and tid:
-                tab = self.targets.setdefault(tid, Tab(self, tid))
+                tab = self.targets.setdefault(tid, Tab(self, tid, info))
                 tab.session_id = sid
                 self._session_to_tab[sid] = tab
+                if tab.type in {"page", "iframe"}:
+                    for domain in self._default_domains:
+                        asyncio.ensure_future(tab.send(domain.enable()))
 
         elif method == cdp.target.DetachedFromTarget:
             # event is a DetachedFromTarget object with session_id attribute
+            logger.debug("Detached from target: %s", event)
             sid = event.session_id
             if sid:
                 tab = self._session_to_tab.pop(sid, None)
@@ -362,6 +405,7 @@ class Browser:
 
         elif method == cdp.target.TargetInfoChanged:
             # event is a TargetInfoChanged object with target_info attribute
+            logger.debug("Target info changed: %s", event)
             info = event.target_info
             tid = info.target_id
             if tid:
@@ -405,6 +449,7 @@ class Browser:
             )
         )
         tab = self.targets.setdefault(target_id, Tab(self, target_id, None))
+        await asyncio.sleep(0.1)
         return tab
 
     async def navigate(
@@ -419,6 +464,7 @@ class Browser:
             url: The URL to navigate to.
             new_tab: If True, create a new tab. If False, reuse an
                 existing tab if available.
+            timeout: Maximum seconds to wait for page load.
 
         Returns:
             Tab: The tab that was navigated to the URL.
@@ -427,12 +473,10 @@ class Browser:
         if not new_tab:
             tab = self.first_tab
             if tab:
-                await tab.init()
                 await tab.navigate(url, timeout=timeout)
                 return tab
         # Create new target
         tab = await self.create_tab()
-        await tab.init()
         await tab.navigate(url, timeout=timeout)
         return tab
 
@@ -470,9 +514,16 @@ class Browser:
     def __await__(
         self,
     ) -> Any:
-        """Make Browser awaitable.
+        """Make Browser awaitable to wait for CDP pipe idle state.
 
-        Allows 'await browser' to wait until the CDP pipe is idle.
+        Allows using 'await browser' to wait until the CDP message pipe
+        has been idle (no messages) for a threshold period. Useful after
+        browser launch to ensure all initial events have been processed.
+
+        Example:
+            browser = await Browser.start()
+            await browser  # Wait for CDP pipe to be idle
+            tab = await browser.navigate("https://example.com")
 
         Returns:
             Iterator that can be awaited.

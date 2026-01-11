@@ -2,11 +2,11 @@
 
 The logger can be configured via environment variables:
     PYPECDP_LOGGER: Logger name (default: "pypecdp")
-    PYPECDP_LOG_LEVEL: Log level (default: "INFO")
+    PYPECDP_LOGLEVEL: Log level (default: "INFO")
 
 Example:
     export PYPECDP_LOGGER=myapp.browser
-    export PYPECDP_LOG_LEVEL=DEBUG
+    export PYPECDP_LOGLEVEL=DEBUG
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ def get_logger() -> logging.Logger:
 
     Configurable via environment variables:
         PYPECDP_LOGGER: Logger name (default: "pypecdp")
-        PYPECDP_LOG_LEVEL: Log level (default: "INFO")
+        PYPECDP_LOGLEVEL: Log level (default: "INFO")
 
     Returns:
         logging.Logger: The shared logger for pypecdp.

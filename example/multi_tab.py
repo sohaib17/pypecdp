@@ -1,7 +1,7 @@
 """Example: Multi-tab workflow and coordination.
 
 Demonstrates managing multiple browser tabs concurrently:
-- Creating multiple tabs with Browser.get()
+- Creating multiple tabs with browser.navigate(new_tab=True)
 - Tracking active tabs in Browser.targets dictionary
 - Coordinating actions across multiple tabs
 - Running parallel operations on different tabs
@@ -64,7 +64,7 @@ async def main() -> None:
 
     async def get_h1_text(tab: Any, tab_num: int) -> str:
         """Extract h1 text from a tab."""
-        h1 = await tab.select("h1")
+        h1 = await tab.find_elem("h1")
         if h1:
             text = await h1.text()
             return f"Tab {tab_num}: {text.strip()}"
