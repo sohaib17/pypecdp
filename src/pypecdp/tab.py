@@ -25,7 +25,14 @@ class Tab:
         target_id: CDP target identifier.
         target_info: Optional target metadata.
         session_id: CDP session ID for this tab.
+
+    Class Attributes:
+        elem_class: Class to use for creating Elem instances. Override this
+            in subclasses to use custom Elem implementations.
     """
+
+    # Class attribute for customization - subclasses can override
+    elem_class: type[Elem] = Elem
 
     def __init__(
         self,
@@ -421,13 +428,13 @@ class Tab:
             root: cdp.dom.Node,
         ) -> Elem | None:
             if root.node_id == nid:
-                return Elem(tab=self, node=root)
+                return self.elem_class(tab=self, node=root)
             node_children = root.children or []
             shadow_roots = root.shadow_roots or []
             children = node_children + shadow_roots
             for child in children:
                 if child.node_id == nid:
-                    return Elem(tab=self, node=child)
+                    return self.elem_class(tab=self, node=child)
                 if child.content_document:
                     elem = _filter(nid, child.content_document)
                 else:

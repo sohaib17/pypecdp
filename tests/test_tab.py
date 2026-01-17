@@ -548,3 +548,56 @@ class TestTab:
         parent = tab.parent
 
         assert parent is None
+
+
+class TestTabCustomization:
+    """Test suite for Tab customization via inheritance."""
+
+    @pytest.fixture
+    def mock_browser(self) -> Mock:
+        """Create a mock Browser."""
+        return Mock()
+
+    def test_tab_elem_class_attribute(self) -> None:
+        """Test Tab has elem_class attribute."""
+        assert hasattr(Tab, "elem_class")
+        assert Tab.elem_class == Elem
+
+    def test_custom_tab_can_override_elem_class(self) -> None:
+        """Test custom Tab can override elem_class."""
+
+        class CustomElem(Elem):
+            def custom_method(self) -> str:
+                return "custom"
+
+        class CustomTab(Tab):
+            elem_class = CustomElem
+
+        assert CustomTab.elem_class == CustomElem
+        assert CustomTab.elem_class != Tab.elem_class
+
+    def test_custom_tab_creates_custom_elem(self, mock_browser: Mock) -> None:
+        """Test custom tab creates custom elem instances."""
+
+        class CustomElem(Elem):
+            pass
+
+        class CustomTab(Tab):
+            elem_class = CustomElem
+
+        target_id = cdp.target.TargetID("test-123")
+        tab = CustomTab(mock_browser, target_id)
+
+        # Setup doc
+        root_node = Mock()
+        root_node.node_id = 1
+        root_node.backend_node_id = 10
+        root_node.children = []
+        root_node.shadow_roots = []
+        tab.doc = root_node
+
+        # elem() should create CustomElem instance
+        elem = tab.elem(cdp.dom.NodeId(1))
+
+        assert isinstance(elem, CustomElem)
+        assert elem.tab == tab

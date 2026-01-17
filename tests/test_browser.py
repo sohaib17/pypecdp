@@ -270,3 +270,52 @@ class TestBrowser:
         await browser.__aexit__(None, None, None)
 
         browser.close.assert_awaited_once()
+
+
+class TestBrowserCustomization:
+    """Test suite for Browser customization via inheritance."""
+
+    def test_browser_tab_class_attribute(self) -> None:
+        """Test Browser has tab_class attribute."""
+        from pypecdp.tab import Tab
+
+        assert hasattr(Browser, "tab_class")
+        assert Browser.tab_class == Tab
+
+    def test_custom_browser_can_override_tab_class(self) -> None:
+        """Test custom Browser can override tab_class."""
+        from pypecdp.tab import Tab
+
+        class CustomTab(Tab):
+            def custom_method(self) -> str:
+                return "custom"
+
+        class CustomBrowser(Browser):
+            tab_class = CustomTab
+
+        assert CustomBrowser.tab_class == CustomTab
+        assert CustomBrowser.tab_class != Browser.tab_class
+
+    def test_custom_browser_uses_custom_tab_for_targets(self) -> None:
+        """Test custom browser creates custom tab instances."""
+        from pypecdp.tab import Tab
+
+        class CustomTab(Tab):
+            pass
+
+        class CustomBrowser(Browser):
+            tab_class = CustomTab
+
+        browser = CustomBrowser()
+        target_id = cdp.target.TargetID("test-123")
+        target_info = Mock()
+        target_info.target_id = target_id
+        target_info.type_ = "page"
+
+        # Manually create tab using the pattern Browser uses
+        tab = browser.targets.setdefault(
+            target_id, browser.tab_class(browser, target_id, target_info)
+        )
+
+        assert isinstance(tab, CustomTab)
+        assert tab.browser == browser

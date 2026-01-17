@@ -112,6 +112,40 @@ if link:
         print(f"Navigated to: {current_tab.url}")
 ```
 
+### Customization via Inheritance
+
+pypecdp is designed to be easily extended through OOP inheritance:
+
+```python
+from pypecdp import Browser, Tab, Elem
+
+class MyElem(Elem):
+    async def click_and_wait(self, timeout=10.0):
+        """Click and wait for page load."""
+        tab = await self.click()
+        if tab:
+            await tab.wait_for_event(cdp.page.LoadEventFired, timeout=timeout)
+        return tab
+
+class MyTab(Tab):
+    elem_class = MyElem  # Use custom Elem class
+    
+    async def search(self, query):
+        """Custom search method."""
+        search_box = await self.wait_for_elem("#search")
+        await search_box.type(query)
+
+class MyBrowser(Browser):
+    tab_class = MyTab  # Use custom Tab class
+
+# Use your custom classes
+browser = await MyBrowser.start()
+tab = await browser.navigate("https://example.com")
+# tab is now MyTab instance, elements are MyElem instances
+```
+
+See `example/customize_pypecdp.py` for working example.
+
 ### Event Handlers
 
 ```python

@@ -30,7 +30,14 @@ class Browser:
         reader: Stream reader for CDP pipe communication.
         writer: Stream writer for CDP pipe communication.
         targets: Mapping of target IDs to Tab instances.
+
+    Class Attributes:
+        tab_class: Class to use for creating Tab instances. Override this
+            in subclasses to use custom Tab implementations.
     """
+
+    # Class attribute for customization - subclasses can override
+    tab_class: type[Tab] = Tab
 
     def __init__(
         self,
@@ -360,7 +367,7 @@ class Browser:
                 "shared_worker",
                 "service_worker",
             }:
-                self.targets.setdefault(tid, Tab(self, tid, info))
+                self.targets.setdefault(tid, self.tab_class(self, tid, info))
                 if self._auto_attach:
                     asyncio.ensure_future(
                         self.send(
@@ -389,7 +396,9 @@ class Browser:
             info = event.target_info
             tid = info.target_id
             if sid and tid:
-                tab = self.targets.setdefault(tid, Tab(self, tid, info))
+                tab = self.targets.setdefault(
+                    tid, self.tab_class(self, tid, info)
+                )
                 tab.session_id = sid
                 self._session_to_tab[sid] = tab
                 if tab.type in {"page", "iframe"}:
@@ -450,7 +459,9 @@ class Browser:
                 new_window=False,
             )
         )
-        tab = self.targets.setdefault(target_id, Tab(self, target_id, None))
+        tab = self.targets.setdefault(
+            target_id, self.tab_class(self, target_id, None)
+        )
         await asyncio.sleep(0.1)
         return tab
 
