@@ -80,6 +80,7 @@ browser = await Browser.start(chrome_path="chromium", headless=True)
 config = Config(
     chrome_path="/usr/bin/google-chrome",
     user_data_dir="/tmp/chrome-profile",
+    clean_data_dir=False,  # Preserve existing profile data
     headless=True,
     extra_args=["--no-sandbox", "--disable-gpu"],
     env={"LANG": "en_US.UTF-8"}
@@ -88,6 +89,27 @@ browser = await Browser.start(config=config)
 
 # Close browser
 await browser.close()
+```
+
+**Note**: By default, `clean_data_dir=True` which removes any existing user data directory before starting. Set it to `False` to preserve cookies, cache, and other browser state between runs.
+
+### Element Interactions
+
+```python
+# Finding and clicking elements
+button = await tab.wait_for_elem("button.submit")
+if button:
+    await button.click()
+
+# Clicking elements that cause navigation
+link = await tab.wait_for_elem('a[href="/next-page"]')
+if link:
+    # click() returns the top-level Tab after navigation
+    current_tab = await link.click()
+    if current_tab:
+        # Wait for the new page to load
+        await current_tab.wait_for_event(cdp.page.LoadEventFired, timeout=10.0)
+        print(f"Navigated to: {current_tab.url}")
 ```
 
 ### Event Handlers

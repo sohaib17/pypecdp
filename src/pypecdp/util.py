@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
@@ -41,7 +42,9 @@ def tab_attached(func: F) -> F:
         if self.tab.session_id is None:
             raise ReferenceError(msg)
         try:
-            return await func(self, *args, **kwargs)
+            result = await func(self, *args, **kwargs)
+            await asyncio.sleep(0)
+            return result
         except RuntimeError as e:
             if "Session with given id not found" in str(e):
                 raise ReferenceError(msg) from e

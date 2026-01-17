@@ -4,9 +4,12 @@ import asyncio
 import contextlib
 import os
 from asyncio.subprocess import Process
+from importlib.util import find_spec
 
 from .config import Config
 from .logger import logger
+
+_POSIX = find_spec("posix") is not None
 
 
 class _Writer:
@@ -41,7 +44,7 @@ class _Writer:
         self._transport.close()
 
 
-async def launch_chrome_with_pipe(
+async def launch_chrome_with_pipe_posix(
     config: Config,
 ) -> tuple[Process, asyncio.StreamReader, _Writer]:
     """Launch Chrome with pipe-based CDP communication.
@@ -117,6 +120,12 @@ async def launch_chrome_with_pipe(
     writer = _Writer(w_transport)
     logger.info("Chrome launched (pid=%s)", proc.pid)
     return proc, reader, writer
+
+
+if _POSIX:
+    launch_chrome_with_pipe = launch_chrome_with_pipe_posix
+else:
+    raise NotImplementedError("Pipe transport is only implemented for POSIX.")
 
 
 __all__ = ["launch_chrome_with_pipe"]

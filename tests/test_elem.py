@@ -210,11 +210,14 @@ class TestElem:
         """Test click dispatches press and release events."""
         quad = [10.0, 20.0, 110.0, 20.0, 110.0, 70.0, 10.0, 70.0]
         mock_tab.send.return_value = [quad]
+        mock_tab.parent = None  # Top-level tab
 
-        await elem.click()
+        result = await elem.click()
 
         # Should call send at least 3 times: get_content_quads, mousePressed, mouseReleased
         assert mock_tab.send.call_count >= 3
+        # Should return the top-level tab
+        assert result == mock_tab
 
     @pytest.mark.asyncio
     async def test_type_inserts_text(self, elem: Elem, mock_tab: Mock) -> None:
@@ -428,6 +431,24 @@ class TestElem:
         result = await elem.click()
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_click_returns_top_level_tab_from_iframe(
+        self, elem: Elem, mock_tab: Mock
+    ) -> None:
+        """Test click returns top-level tab when element is in an iframe."""
+        quad = [10.0, 20.0, 110.0, 20.0, 110.0, 70.0, 10.0, 70.0]
+        mock_tab.send.return_value = [quad]
+
+        # Create parent tab hierarchy
+        parent_tab = Mock()
+        parent_tab.parent = None  # Top-level
+        mock_tab.parent = parent_tab
+
+        result = await elem.click()
+
+        # Should return the top-level parent tab
+        assert result == parent_tab
 
     def test_parent_returns_parent_elem_when_parent_id_exists(
         self, mock_tab: Mock

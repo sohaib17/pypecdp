@@ -37,7 +37,7 @@ async def main() -> None:
     # Capture viewport screenshot (default)
     print("\n1. Capturing viewport screenshot...")
     data = await tab.send(
-        cdp.page.capture_screenshot(format_="png", quality=90)
+        cdp.page.capture_screenshot(format_="jpeg", quality=90)
     )
 
     # Decode base64 and save

@@ -38,6 +38,7 @@ class Browser:
         *,
         chrome_path: str = "chromium",
         user_data_dir: str | None = None,
+        clean_data_dir: bool = True,
         headless: bool = True,
         extra_args: list[str] | None = None,
         ignore_default_args: list[str] | None = None,
@@ -63,6 +64,7 @@ class Browser:
         self.config: Config = config or Config(
             chrome_path=chrome_path,
             user_data_dir=user_data_dir,
+            clean_data_dir=clean_data_dir,
             headless=headless,
             extra_args=list(extra_args or []),
             ignore_default_args=ignore_default_args,

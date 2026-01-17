@@ -95,6 +95,9 @@ class Tab:
             event: The CDP event object to dispatch.
         """
         method: type[Any] = type(event)
+        if method in (cdp.dom.DocumentUpdated,):
+            # Invalidate cached document on DOM changes
+            self.doc = None
         for h in self._handlers.get(method, []):
             try:
                 if asyncio.iscoroutinefunction(h) or asyncio.iscoroutine(h):
@@ -366,6 +369,32 @@ class Tab:
             logger.debug("Could not close tab %s", self.target_id)
 
     # Attributes--------------------------------------------------------------
+
+    @property
+    def parent(
+        self,
+    ) -> Tab | None:
+        """Get the parent tab if this tab is a child frame.
+
+        This property is useful for navigating iframe hierarchies. Top-level
+        tabs (pages) will have no parent, while iframes and nested frames
+        will return their parent tab.
+
+        Returns:
+            Tab | None: The parent Tab instance if this is a frame/iframe,
+                or None if this is a top-level page or parent not found.
+
+        Example:
+            >>> if tab.parent:
+            ...     print(f"Frame in: {tab.parent.url}")
+            ... else:
+            ...     print("Top-level tab")
+        """
+        if self.target_info and self.target_info.parent_frame_id:
+            return self.browser.targets.get(
+                cdp.target.TargetID(self.target_info.parent_frame_id), None
+            )
+        return None
 
     def elem(
         self,

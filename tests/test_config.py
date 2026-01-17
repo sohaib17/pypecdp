@@ -141,3 +141,48 @@ class TestConfig:
         # Should be a copy of os.environ
         assert len(env) > 0
         assert env == dict(os.environ)
+
+    def test_clean_data_dir_default_true(self) -> None:
+        """Test that clean_data_dir defaults to True."""
+        config = Config()
+
+        assert config.clean_data_dir is True
+
+    def test_clean_data_dir_custom_false(self) -> None:
+        """Test that clean_data_dir can be set to False."""
+        config = Config(clean_data_dir=False)
+
+        assert config.clean_data_dir is False
+
+    def test_ensure_user_data_dir_cleans_existing(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that ensure_user_data_dir removes existing directory when clean_data_dir=True."""
+        test_dir = tmp_path / "test-profile"
+        test_dir.mkdir()
+        test_file = test_dir / "test.txt"
+        test_file.write_text("old data")
+
+        config = Config(user_data_dir=str(test_dir), clean_data_dir=True)
+        data_dir = config.ensure_user_data_dir()
+
+        assert data_dir == str(test_dir)
+        assert test_dir.exists()
+        assert not test_file.exists()  # Old file should be removed
+
+    def test_ensure_user_data_dir_preserves_existing(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that ensure_user_data_dir preserves existing directory when clean_data_dir=False."""
+        test_dir = tmp_path / "test-profile"
+        test_dir.mkdir()
+        test_file = test_dir / "test.txt"
+        test_file.write_text("old data")
+
+        config = Config(user_data_dir=str(test_dir), clean_data_dir=False)
+        data_dir = config.ensure_user_data_dir()
+
+        assert data_dir == str(test_dir)
+        assert test_dir.exists()
+        assert test_file.exists()  # Old file should be preserved
+        assert test_file.read_text() == "old data"

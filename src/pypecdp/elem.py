@@ -168,19 +168,31 @@ class Elem:
         button: cdp.input_.MouseButton = cdp.input_.MouseButton.LEFT,
         click_count: int = 1,
         delay: float = 0.02,
-    ) -> None:
+    ) -> Tab | None:
         """Click the element at its center point.
 
         Scrolls the element into view, calculates the center, and
-        dispatches mouse press and release events.
+        dispatches mouse press and release events. Returns the top-level
+        tab, which is useful when the click triggers navigation.
 
         Args:
             button: Mouse button to use (default: LEFT).
             click_count: Number of clicks (1 for single, 2 for double).
             delay: Delay in seconds between press and release.
 
+        Returns:
+            Tab | None: The current top-level Tab containing this element,
+                or None if the element position cannot be determined.
+
         Raises:
             ReferenceError: If the tab session is no longer active.
+
+        Example:
+            >>> link = await tab.wait_for_elem('a[href="/next"]')
+            >>> current_tab = await link.click()
+            >>> if current_tab:
+            ...     await current_tab.wait_for_event(cdp.page.LoadEventFired)
+            ...     print(f"Navigated to: {current_tab.url}")
         """
         await self.scroll_into_view()
         position = await self.position()
@@ -209,7 +221,13 @@ class Elem:
                 click_count=click_count,
             )
         )
-        return None
+        tab = self.tab
+        while True:
+            parent = tab.parent
+            if parent is None:
+                break
+            tab = parent
+        return tab
 
     @tab_attached
     async def type(

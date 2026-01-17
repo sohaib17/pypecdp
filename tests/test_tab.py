@@ -509,3 +509,42 @@ class TestTab:
 
         assert len(result) == 1
         assert result[0] == frame_tab
+
+    def test_parent_property_returns_none_for_top_level(
+        self, tab: Tab, mock_browser: Mock
+    ) -> None:
+        """Test that parent property returns None for top-level tabs."""
+        # Top-level tab has no parent_frame_id
+        tab.target_info.parent_frame_id = None
+
+        parent = tab.parent
+
+        assert parent is None
+
+    def test_parent_property_returns_parent_tab(
+        self, tab: Tab, mock_browser: Mock
+    ) -> None:
+        """Test that parent property returns parent tab for iframes."""
+        # Create parent tab
+        parent_target_id = cdp.target.TargetID("parent-target-789")
+        parent_tab = Mock()
+        mock_browser.targets[parent_target_id] = parent_tab
+
+        # Set parent frame ID on child tab
+        tab.target_info.parent_frame_id = "parent-target-789"
+
+        parent = tab.parent
+
+        assert parent == parent_tab
+
+    def test_parent_property_returns_none_when_parent_not_found(
+        self, tab: Tab, mock_browser: Mock
+    ) -> None:
+        """Test that parent property returns None when parent target not found."""
+        # Set parent frame ID but don't add parent to targets
+        tab.target_info.parent_frame_id = "nonexistent-parent"
+        mock_browser.targets = {}
+
+        parent = tab.parent
+
+        assert parent is None

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import shutil
 import tempfile
 from dataclasses import dataclass, field
 
@@ -18,14 +19,25 @@ class Config:
         chrome_path: Path to Chrome/Chromium executable.
         user_data_dir: Path to user data directory. If None, a
             temporary directory will be created.
+        clean_data_dir: Whether to remove existing user data directory before
+            starting. Defaults to True. Set to False to preserve cookies,
+            cache, and other browser state between runs.
         headless: Whether to run in headless mode.
         extra_args: Additional command-line arguments to pass.
         ignore_default_args: List of default args to ignore.
         env: Environment variables to set for the browser process.
+
+    Example:
+        >>> config = Config(
+        ...     chrome_path="chromium",
+        ...     clean_data_dir=False,  # Preserve profile
+        ...     headless=True
+        ... )
     """
 
     chrome_path: str = "chromium"
     user_data_dir: str | None = None
+    clean_data_dir: bool = True
     headless: bool = True
     extra_args: list[str] = field(default_factory=list)
     ignore_default_args: list[str] | None = None
@@ -45,6 +57,8 @@ class Config:
         if not data_dir:
             data_dir = os.path.join(tempfile.gettempdir(), ".pypecdp-profile")
             self.user_data_dir = data_dir
+        if self.clean_data_dir and os.path.exists(data_dir):
+            shutil.rmtree(data_dir)
         pathlib.Path(data_dir).mkdir(parents=True, exist_ok=True)
         logger.debug("Using user_data_dir: %s", data_dir)
         return data_dir
