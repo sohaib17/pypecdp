@@ -450,7 +450,8 @@ class Elem:
         Useful for traversing up the DOM tree. Can be chained to access
         ancestors: elem.parent.parent
 
-        Example:
+        Example::
+
             # Navigate up to find a containing form
             button = await tab.find_elem("button[type=submit]")
             form = button.parent  # Get parent element

@@ -6,6 +6,10 @@ Chrome automation using `--remote-debugging-pipe` (no websockets, no ports, just
 
 Inspired by [playwright-python](https://github.com/microsoft/playwright-python), [python-cdp](https://github.com/HMaker/python-cdp) and [nodriver](https://github.com/ultrafunkamsterdam/nodriver).
 
+## Documentation
+
+Full documentation is auto-generated and published at: **https://sohaib17.github.io/pypecdp/**
+
 ## Features
 
 - **Fully Async**: Built from ground up with asyncio for concurrent operations
@@ -232,7 +236,10 @@ finally:
 
 ## Links
 
+- [Documentation](https://sohaib17.github.io/pypecdp/)
 - [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
+- [GitHub Repository](https://github.com/sohaib17/pypecdp)
+- [Issue Tracker](https://github.com/sohaib17/pypecdp/issues)
 
 ## License
 

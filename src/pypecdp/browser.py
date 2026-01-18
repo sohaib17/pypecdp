@@ -226,6 +226,7 @@ class Browser:
             cmd: CDP command generator to send.
             session_id: Optional session ID for tab-specific commands.
             **kwargs: Optional keyword arguments:
+
                 - ignore_errors (bool): If True, suppress CDP errors and
                   return None instead of raising RuntimeError.
 
