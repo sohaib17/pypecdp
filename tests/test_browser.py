@@ -7,6 +7,7 @@ import pytest
 from pypecdp import cdp
 from pypecdp.browser import Browser
 from pypecdp.config import Config
+from pypecdp.util import CookieJar
 
 
 class TestBrowser:
@@ -270,6 +271,113 @@ class TestBrowser:
         await browser.__aexit__(None, None, None)
 
         browser.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cookies_returns_cookiejar(self) -> None:
+        """Test cookies() returns a CookieJar instance."""
+        browser = Browser()
+
+        # Mock the send method to return empty list
+        browser.send = AsyncMock(return_value=[])
+
+        jar = await browser.cookies()
+
+        assert isinstance(jar, CookieJar)
+        browser.send.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_cookies_calls_storage_get_cookies(self) -> None:
+        """Test cookies() calls cdp.storage.get_cookies()."""
+        browser = Browser()
+        browser.send = AsyncMock(return_value=[])
+
+        await browser.cookies()
+
+        # Verify send was called
+        assert browser.send.called
+        # The argument should be a generator from cdp.storage.get_cookies()
+
+    @pytest.mark.asyncio
+    async def test_cookies_returns_jar_with_cdp_cookies(self) -> None:
+        """Test cookies() returns CookieJar populated with CDP cookies."""
+        browser = Browser()
+
+        # Create sample CDP cookies
+        cdp_cookie1 = cdp.network.Cookie(
+            name="cookie1",
+            value="value1",
+            domain="example.com",
+            path="/",
+            size=10,
+            http_only=True,
+            secure=True,
+            session=False,
+            priority=cdp.network.CookiePriority.MEDIUM,
+            source_scheme=cdp.network.CookieSourceScheme.SECURE,
+            source_port=443,
+            expires=1735689600.0,
+        )
+        cdp_cookie2 = cdp.network.Cookie(
+            name="cookie2",
+            value="value2",
+            domain="example.com",
+            path="/app",
+            size=15,
+            http_only=False,
+            secure=False,
+            session=True,
+            priority=cdp.network.CookiePriority.LOW,
+            source_scheme=cdp.network.CookieSourceScheme.UNSET,
+            source_port=-1,
+            expires=-1.0,
+        )
+
+        browser.send = AsyncMock(return_value=[cdp_cookie1, cdp_cookie2])
+
+        jar = await browser.cookies()
+
+        assert isinstance(jar, CookieJar)
+        assert len(jar) == 2
+        assert jar.cdp_cookies == [cdp_cookie1, cdp_cookie2]
+
+        # Verify cookies were converted
+        cookie_names = {cookie.name for cookie in jar}
+        assert cookie_names == {"cookie1", "cookie2"}
+
+    @pytest.mark.asyncio
+    async def test_cookies_preserves_cdp_cookie_properties(self) -> None:
+        """Test cookies() preserves CDP-specific properties."""
+        browser = Browser()
+
+        cdp_cookie = cdp.network.Cookie(
+            name="test",
+            value="value",
+            domain=".example.com",
+            path="/",
+            size=10,
+            http_only=True,
+            secure=True,
+            session=False,
+            priority=cdp.network.CookiePriority.HIGH,
+            source_scheme=cdp.network.CookieSourceScheme.SECURE,
+            source_port=443,
+            expires=1735689600.0,
+            same_site=cdp.network.CookieSameSite.STRICT,
+        )
+
+        browser.send = AsyncMock(return_value=[cdp_cookie])
+
+        jar = await browser.cookies()
+
+        # Original CDP cookie should be accessible
+        assert jar.cdp_cookies[0].priority == cdp.network.CookiePriority.HIGH
+        assert (
+            jar.cdp_cookies[0].same_site == cdp.network.CookieSameSite.STRICT
+        )
+        assert (
+            jar.cdp_cookies[0].source_scheme
+            == cdp.network.CookieSourceScheme.SECURE
+        )
 
 
 class TestBrowserCustomization:

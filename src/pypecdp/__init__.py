@@ -1,7 +1,7 @@
 """Public API for pypecdp.
 
 Exports:
-    Browser, Tab, Elem, Config, cdp, logger
+    Browser, Tab, Elem, Config, CookieJar, cdp, logger
 """
 
 from __future__ import annotations
@@ -14,12 +14,14 @@ from .config import Config
 from .elem import Elem
 from .logger import logger
 from .tab import Tab
+from .util import CookieJar
 
 __all__: list[str] = [
     "Browser",
     "Tab",
     "Elem",
     "Config",
+    "CookieJar",
     "cdp",
     "logger",
 ]

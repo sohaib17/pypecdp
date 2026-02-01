@@ -16,6 +16,7 @@ from .cdp_pipe import _Writer, launch_chrome_with_pipe
 from .config import Config
 from .logger import logger
 from .tab import Tab
+from .util import CookieJar
 
 
 class Browser:
@@ -95,6 +96,7 @@ class Browser:
                 cdp.dom,
             ],
         )
+        self._version: tuple[str, ...] | None = None
 
     # Lifecycle --------------------------------------------------------------
 
@@ -135,6 +137,14 @@ class Browser:
             cdp.target.set_discover_targets(
                 discover=True,
             ),
+        )
+        # 0. **protocolVersion** - Protocol version
+        # 1. **product** - Product name
+        # 2. **revision** - Product revision
+        # 3. **userAgent** - User-Agent
+        # 4. **jsVersion** - V8 version
+        self._version = await self.send(
+            cmd=cdp.browser.get_version(),
         )
         await self
 
@@ -506,6 +516,33 @@ class Browser:
             handler: Callback function or coroutine to handle the event.
         """
         self._handlers.setdefault(event_name, []).append(handler)
+
+    async def cookies(
+        self,
+    ) -> CookieJar:
+        """Get all cookies for the browser.
+
+        Retrieves cookies from Chrome via CDP and converts them to a
+        standard Python CookieJar. The returned CookieJar contains
+        http.cookiejar.Cookie objects that are compatible with urllib,
+        requests, and other HTTP libraries.
+
+        Note:
+            The original CDP cookies (list[cdp.network.Cookie]) are preserved
+            in the returned CookieJar's ``cdp_cookies`` attribute. This allows
+            access to CDP-specific cookie properties (priority, source_scheme,
+            source_port, same_site, partition_key, etc.) that aren't available
+            in the standard cookiejar.Cookie objects.
+
+        Returns:
+            CookieJar: A CookieJar (subclass of http.cookiejar.CookieJar)
+                containing all browser cookies. The jar.cdp_cookies attribute
+                contains the original CDP cookie objects.
+        """
+        cdp_cookies: list[cdp.network.Cookie] = await self.send(
+            cdp.storage.get_cookies(),
+        )
+        return CookieJar(cdp_cookies)
 
     # Attributes--------------------------------------------------------------
 

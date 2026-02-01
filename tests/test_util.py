@@ -4,8 +4,9 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from pypecdp import cdp
 from pypecdp.elem import Elem
-from pypecdp.util import tab_attached
+from pypecdp.util import CookieJar, tab_attached
 
 
 class TestTabAttachedDecorator:
@@ -121,3 +122,204 @@ class TestTabAttachedDecorator:
 
         result = await test_method(mock_elem)
         assert result is None
+
+
+class TestCookieJar:
+    """Test suite for CookieJar class."""
+
+    @pytest.fixture
+    def sample_cdp_cookie(self) -> cdp.network.Cookie:
+        """Create a sample CDP cookie for testing."""
+        return cdp.network.Cookie(
+            name="test_cookie",
+            value="test_value",
+            domain=".example.com",
+            path="/",
+            size=20,
+            http_only=True,
+            secure=True,
+            session=False,
+            priority=cdp.network.CookiePriority.MEDIUM,
+            source_scheme=cdp.network.CookieSourceScheme.SECURE,
+            source_port=443,
+            expires=1735689600.0,  # 2025-01-01 00:00:00 UTC
+            same_site=cdp.network.CookieSameSite.STRICT,
+        )
+
+    @pytest.fixture
+    def session_cdp_cookie(self) -> cdp.network.Cookie:
+        """Create a session CDP cookie for testing."""
+        return cdp.network.Cookie(
+            name="session_cookie",
+            value="session_value",
+            domain="example.com",
+            path="/app",
+            size=25,
+            http_only=False,
+            secure=False,
+            session=True,
+            priority=cdp.network.CookiePriority.LOW,
+            source_scheme=cdp.network.CookieSourceScheme.UNSET,
+            source_port=-1,
+            expires=-1.0,  # Session cookie
+            same_site=None,
+        )
+
+    def test_cookiejar_initialization_empty(self) -> None:
+        """Test CookieJar can be initialized empty."""
+        jar = CookieJar()
+        assert len(jar) == 0
+        assert jar.cdp_cookies is None
+
+    def test_cookiejar_initialization_with_cookies(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar initializes with CDP cookies."""
+        jar = CookieJar([sample_cdp_cookie])
+        assert len(jar) == 1
+        assert jar.cdp_cookies == [sample_cdp_cookie]
+
+    def test_cookiejar_converts_cdp_cookie_attributes(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar correctly converts CDP cookie attributes."""
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+
+        assert cookie.name == "test_cookie"
+        assert cookie.value == "test_value"
+        assert cookie.domain == ".example.com"
+        assert cookie.path == "/"
+        assert cookie.secure is True
+        assert cookie._rest.get("HttpOnly") == "True"
+
+    def test_cookiejar_handles_domain_initial_dot(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar sets domain_initial_dot correctly."""
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+        assert cookie.domain_initial_dot is True
+
+        # Test without leading dot
+        sample_cdp_cookie.domain = "example.com"
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+        assert cookie.domain_initial_dot is False
+
+    def test_cookiejar_handles_persistent_cookie_expiry(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar handles persistent cookie expiry correctly."""
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+
+        assert cookie.discard is False
+        assert cookie.expires == 1735689600
+        assert isinstance(cookie.expires, int)
+
+    def test_cookiejar_handles_session_cookie(
+        self, session_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar handles session cookies correctly."""
+        jar = CookieJar([session_cdp_cookie])
+        cookie = list(jar)[0]
+
+        assert cookie.name == "session_cookie"
+        assert cookie.discard is True
+        assert cookie.expires is None
+
+    def test_cookiejar_handles_http_only_attribute(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar stores HttpOnly in rest dict."""
+        # HttpOnly = True
+        sample_cdp_cookie.http_only = True
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+        assert cookie._rest.get("HttpOnly") == "True"
+
+        # HttpOnly = False
+        sample_cdp_cookie.http_only = False
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+        assert cookie._rest.get("HttpOnly") == "False"
+
+    def test_cookiejar_handles_multiple_cookies(
+        self,
+        sample_cdp_cookie: cdp.network.Cookie,
+        session_cdp_cookie: cdp.network.Cookie,
+    ) -> None:
+        """Test CookieJar handles multiple cookies."""
+        jar = CookieJar([sample_cdp_cookie, session_cdp_cookie])
+        assert len(jar) == 2
+        assert len(jar.cdp_cookies) == 2
+
+        cookie_names = {cookie.name for cookie in jar}
+        assert cookie_names == {"test_cookie", "session_cookie"}
+
+    def test_cookiejar_preserves_original_cdp_cookies(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar preserves original CDP cookies."""
+        jar = CookieJar([sample_cdp_cookie])
+
+        assert jar.cdp_cookies is not None
+        assert len(jar.cdp_cookies) == 1
+        assert jar.cdp_cookies[0] is sample_cdp_cookie
+
+        # CDP-specific attributes should be accessible
+        assert jar.cdp_cookies[0].priority == cdp.network.CookiePriority.MEDIUM
+        assert (
+            jar.cdp_cookies[0].source_scheme
+            == cdp.network.CookieSourceScheme.SECURE
+        )
+        assert (
+            jar.cdp_cookies[0].same_site == cdp.network.CookieSameSite.STRICT
+        )
+
+    def test_cookiejar_inherits_from_standard_cookiejar(self) -> None:
+        """Test CookieJar is a proper subclass of http.cookiejar.CookieJar."""
+        from http import cookiejar as stdlib_cookiejar
+
+        jar = CookieJar()
+        assert isinstance(jar, stdlib_cookiejar.CookieJar)
+
+    def test_cookiejar_handles_none_expires(self) -> None:
+        """Test CookieJar handles None expires value."""
+        cookie = cdp.network.Cookie(
+            name="test",
+            value="value",
+            domain="example.com",
+            path="/",
+            size=10,
+            http_only=False,
+            secure=False,
+            session=False,
+            priority=cdp.network.CookiePriority.MEDIUM,
+            source_scheme=cdp.network.CookieSourceScheme.UNSET,
+            source_port=-1,
+            expires=None,  # Unrepresentable value
+        )
+
+        jar = CookieJar([cookie])
+        converted_cookie = list(jar)[0]
+        assert converted_cookie.expires is None
+        assert converted_cookie.discard is False  # Not a session cookie
+
+    def test_cookiejar_cookie_version_is_netscape(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar creates Netscape-style cookies (version 0)."""
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+        assert cookie.version == 0
+
+    def test_cookiejar_cookie_domain_and_path_specified(
+        self, sample_cdp_cookie: cdp.network.Cookie
+    ) -> None:
+        """Test CookieJar sets domain_specified and path_specified."""
+        jar = CookieJar([sample_cdp_cookie])
+        cookie = list(jar)[0]
+        assert cookie.domain_specified is True
+        assert cookie.path_specified is True

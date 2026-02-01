@@ -34,3 +34,11 @@ Config
    :members:
    :undoc-members:
    :show-inheritance:
+
+CookieJar
+---------
+
+.. autoclass:: pypecdp.util.CookieJar
+   :members:
+   :undoc-members:
+   :show-inheritance:
